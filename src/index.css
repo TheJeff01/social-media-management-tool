@@ -1,0 +1,234 @@
+@import url("https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap");
+
+:root {
+  /* Dark Modern Theme */
+  --primary-gradient: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+  --accent-gradient: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%);
+  --secondary-gradient: linear-gradient(135deg, #667db6 0%, #0082c8 100%);
+  
+  /* Solid fallback colors */
+  --primary-color: #2c3e50;
+  --accent-color: #00c6ff;
+  --secondary-color: #34495e;
+  
+  /* Dark theme background colors */
+  --bg-primary: #1a1a1a;
+  --bg-secondary: #2d3748;
+  --bg-card: #374151;
+  --bg-surface: #4a5568;
+  
+  /* Dark theme text colors */
+  --text-primary: #f7fafc;
+  --text-secondary: #e2e8f0;
+  --text-light: #a0aec0;
+  --text-muted: #718096;
+  
+  /* Shadow and effects for dark theme */
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.3);
+  --shadow-md: 0 8px 25px rgba(0,0,0,0.4);
+  --shadow-lg: 0 15px 35px rgba(0,0,0,0.5);
+  
+  /* Border radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Poppins", sans-serif;
+}
+
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.6;
+}
+
+.layout {
+  display: flex;
+  min-height: 100vh;
+  max-width: 1400px;
+  margin: 0 auto;
+  background: var(--bg-secondary);
+  box-shadow: var(--shadow-lg);
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 30px 50px 20px 0;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  margin-bottom: 20px;
+}
+
+.app-header h1 {
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 700;
+  font-size: 2.2rem;
+}
+
+.app-container {
+  flex: 1;
+  width: 100%;
+  padding: 20px;
+  height: 100vh;
+  background: var(--bg-primary);
+  overflow-y: scroll;
+  -webkit-overflow-scrolling: hidden;
+}
+
+/* Subtle dark background pattern */
+.app-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 200px;
+  background: var(--accent-gradient);
+  opacity: 0.03;
+  border-radius: var(--radius-lg);
+  pointer-events: none;
+}
+
+/* Header icons with dark theme styling */
+.notification-user {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.notification-user > * {
+  font-size: 2.5rem !important;
+  padding: 16px;
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-sm);
+  transition: all 0.3s ease;
+  cursor: pointer;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 60px;
+  min-height: 60px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.notification-user > *:hover {
+  transform: translateY(-3px) scale(1.05);
+  box-shadow: var(--shadow-md);
+  background: var(--accent-gradient);
+  color: white;
+  border-color: var(--accent-color);
+}
+
+/* Mobile styles */
+@media (max-width: 899px) {
+  .layout {
+    flex-direction: column;
+    max-width: 100%;
+    margin: 0;
+  }
+
+  .app-container {
+    padding: 15px;
+    width: 100%;
+  }
+  
+  .app-header {
+    padding: 20px 15px 15px 15px;
+  }
+  
+  .app-header h1 {
+    font-size: 1.8rem;
+  }
+  
+  .notification-user {
+    gap: 15px;
+  }
+    
+  .notification-user > * {
+    min-width: 50px;
+    min-height: 50px;
+    padding: 12px;
+    font-size: 2rem !important;
+  }
+}
+
+/* Desktop styles */
+@media (min-width: 900px) {
+  .layout {
+    flex-direction: row;
+  }
+
+  .app-container {
+    padding: 0 40px;
+  }
+  
+  .app-header {
+    padding-right: 0;
+    padding-top: 50px;
+  }
+}
+
+/* Dark theme button styles */
+.btn-primary {
+  background: var(--primary-gradient);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.btn-secondary {
+  background: var(--accent-gradient);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-secondary:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+/* Dark theme card styles */
+.card {
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.3s ease;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.2);
+}
