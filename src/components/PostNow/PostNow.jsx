@@ -1,6 +1,6 @@
 // PostNow.jsx - Reusable component for instant posting
-import React, { useState } from 'react';
-import './PostNow.css';
+import React, { useState } from "react";
+import "./PostNow.css";
 import { MdSend, MdOutlineImage, MdOutlineAttachFile } from "react-icons/md";
 import { FaTwitter, FaFacebook, FaInstagram, FaLinkedin } from "react-icons/fa";
 import { IoFlashOutline } from "react-icons/io5";
@@ -8,25 +8,25 @@ import { IoFlashOutline } from "react-icons/io5";
 function PostNow() {
   const [postContent, setPostContent] = useState("");
   const [selectedPlatforms, setSelectedPlatforms] = useState([]);
-  
+
   const platforms = [
     { name: "Twitter", icon: <FaTwitter />, color: "#1DA1F2" },
     { name: "Facebook", icon: <FaFacebook />, color: "#4267B2" },
     { name: "Instagram", icon: <FaInstagram />, color: "#E4405F" },
-    { name: "LinkedIn", icon: <FaLinkedin />, color: "#0077B5" }
+    { name: "LinkedIn", icon: <FaLinkedin />, color: "#0077B5" },
   ];
 
   const togglePlatform = (platformName) => {
-    setSelectedPlatforms(prev => 
+    setSelectedPlatforms((prev) =>
       prev.includes(platformName)
-        ? prev.filter(p => p !== platformName)
+        ? prev.filter((p) => p !== platformName)
         : [...prev, platformName]
     );
   };
 
   const handlePostNow = (e) => {
     e.preventDefault();
-    
+
     if (!postContent.trim() || selectedPlatforms.length === 0) {
       return;
     }
@@ -35,16 +35,16 @@ function PostNow() {
     console.log({
       content: postContent,
       platforms: selectedPlatforms,
-      action: 'post_now',
-      timestamp: new Date().toISOString()
+      action: "post_now",
+      timestamp: new Date().toISOString(),
     });
-    
+
     // Reset form after posting
     setPostContent("");
     setSelectedPlatforms([]);
-    
+
     // You could add a success notification here
-    alert('Post shared successfully!');
+    alert("Post shared successfully!");
   };
 
   return (
@@ -65,9 +65,11 @@ function PostNow() {
           {platforms.map((platform) => (
             <div
               key={platform.name}
-              className={`quick-platform ${selectedPlatforms.includes(platform.name) ? 'selected' : ''}`}
+              className={`quick-platform ${
+                selectedPlatforms.includes(platform.name) ? "selected" : ""
+              }`}
               onClick={() => togglePlatform(platform.name)}
-              style={{ '--platform-color': platform.color }}
+              style={{ "--platform-color": platform.color }}
               title={`Post to ${platform.name}`}
             >
               {platform.icon}
@@ -87,10 +89,18 @@ function PostNow() {
           />
           <div className="quick-post-footer">
             <div className="quick-attachments">
-              <button type="button" className="quick-attachment-btn" title="Add Image">
+              <button
+                type="button"
+                className="quick-attachment-btn"
+                title="Add Image"
+              >
                 <MdOutlineImage />
               </button>
-              <button type="button" className="quick-attachment-btn" title="Add File">
+              <button
+                type="button"
+                className="quick-attachment-btn"
+                title="Add File"
+              >
                 <MdOutlineAttachFile />
               </button>
             </div>
@@ -98,8 +108,8 @@ function PostNow() {
               <div className="character-count-small">
                 {postContent.length}/280
               </div>
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 className="post-now-btn"
                 disabled={!postContent.trim() || selectedPlatforms.length === 0}
               >

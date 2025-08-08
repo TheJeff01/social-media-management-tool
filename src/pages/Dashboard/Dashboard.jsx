@@ -2,7 +2,7 @@
 import React from 'react'
 import './Dashboard.css'
 import DashboardDataCard from '../../components/dashboardcard/DashboardDataCard';
-import PostNow from '../../components/postnow/PostNow';
+import PostNow from '../../components/PostNow/PostNow';
 
 function Dashboard() {
   return (
