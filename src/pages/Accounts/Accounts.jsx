@@ -220,15 +220,6 @@ function Accounts() {
         </div>
       </div>
 
-      {/* Debug: Show stored FB Page info */}
-      {sessionStorage.getItem("fb_page_id") && (
-        <div style={{ marginTop: "20px", padding: "10px", border: "1px solid #ccc", background: "#fafafa" }}>
-          <h4>Facebook Connection (Test View)</h4>
-          <p><strong>Page ID:</strong> {sessionStorage.getItem("fb_page_id")}</p>
-          <p><strong>Page Token:</strong> {sessionStorage.getItem("fb_page_token")}</p>
-        </div>
-      )}
-
       {/* Available Platforms Section */}
       <div className="accounts-section">
         <div className="section-header">
