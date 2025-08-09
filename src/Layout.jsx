@@ -6,11 +6,13 @@ import { FaRegCircleUser } from "react-icons/fa6";
 import { MdLogout } from "react-icons/md";
 import Sidebar from "./components/sidebar/Sidebar";
 import ThemeToggle from "./ThemeToggle";
+import { useConfirm } from "./components/Confirm/ConfirmProvider";
 
 function Layout({ onLogout }) {
   const location = useLocation();
   const [user, setUser] = useState(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const { confirm } = useConfirm();
 
   // Get user data from session storage
   useEffect(() => {
@@ -39,10 +41,15 @@ function Layout({ onLogout }) {
     }
   };
 
-  const handleLogout = () => {
-    if (window.confirm('Are you sure you want to log out?')) {
-      onLogout();
-    }
+  const handleLogout = async () => {
+    const ok = await confirm({
+      title: 'Log out',
+      message: 'Are you sure you want to log out?',
+      confirmText: 'Log out',
+      cancelText: 'Cancel',
+      tone: 'danger'
+    });
+    if (ok) onLogout();
     setShowUserMenu(false);
   };
 

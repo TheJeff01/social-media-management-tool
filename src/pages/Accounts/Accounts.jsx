@@ -11,10 +11,14 @@ import {
 } from "react-icons/md";
 import { IoLinkOutline, IoStatsChart } from "react-icons/io5";
 import { BsShieldCheck } from "react-icons/bs";
+import { useToast } from "../../components/Toast/ToastProvider";
+import { useConfirm } from "../../components/Confirm/ConfirmProvider";
 
 function Accounts() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedPlatform, setSelectedPlatform] = useState(null);
+  const { showToast } = useToast();
+  const { confirm } = useConfirm();
 
   // Load FB SDK
   useEffect(() => {
@@ -53,9 +57,17 @@ function Accounts() {
     setShowAddModal(true);
   };
 
-  const handleDisconnectAccount = (accountId) => {
-    if (window.confirm('Are you sure you want to disconnect this account?')) {
+  const handleDisconnectAccount = async (accountId) => {
+    const ok = await confirm({
+      title: 'Disconnect account',
+      message: 'Are you sure you want to disconnect this account?',
+      confirmText: 'Disconnect',
+      cancelText: 'Cancel',
+      tone: 'danger'
+    });
+    if (ok) {
       setConnectedAccounts(prev => prev.filter(acc => acc.id !== accountId));
+      showToast({ message: 'Account disconnected', type: 'success' });
     }
   };
 
@@ -122,13 +134,13 @@ function Accounts() {
                 }
               ]);
 
-              alert(`Connected to Facebook Page: ${page.name}`);
+              showToast({ message: `Connected to Facebook Page: ${page.name}` , type: 'success' });
             } else {
-              alert("No Facebook Pages found for this account.");
+              showToast({ message: "No Facebook Pages found for this account.", type: 'warning' });
             }
           });
         } else {
-          alert("Facebook login cancelled or not authorized.");
+          showToast({ message: "Facebook login cancelled or not authorized.", type: 'warning' });
         }
       },
       { scope: "pages_manage_posts,pages_show_list,pages_read_engagement" }
@@ -295,7 +307,7 @@ function Accounts() {
                   if (selectedPlatform.name === "Facebook") {
                     connectFacebook();
                   } else {
-                    alert(`Connecting to ${selectedPlatform.name}...`);
+                    showToast({ message: `Connecting to ${selectedPlatform.name}...`, type: 'info' });
                   }
                   setShowAddModal(false);
                 }}

@@ -7,6 +7,7 @@ import { IoHomeOutline } from "react-icons/io5";
 import { AiOutlineSchedule } from "react-icons/ai";
 import { MdOutlineManageAccounts, MdLogout } from "react-icons/md";
 import ThemeToggle from "../../ThemeToggle";
+import { useConfirm } from "../Confirm/ConfirmProvider";
 
 const Sidebar = ({ onLogout }) => {
   const [isSideMenuOpen, setMenu] = useState(false);
@@ -22,10 +23,17 @@ const Sidebar = ({ onLogout }) => {
     setMenu(false);
   };
 
-  const handleLogout = () => {
-    if (window.confirm('Are you sure you want to log out?')) {
-      onLogout();
-    }
+  const { confirm } = useConfirm();
+
+  const handleLogout = async () => {
+    const ok = await confirm({
+      title: 'Log out',
+      message: 'Are you sure you want to log out?',
+      confirmText: 'Log out',
+      cancelText: 'Cancel',
+      tone: 'danger'
+    });
+    if (ok) onLogout();
     setMenu(false);
   };
 

@@ -4,6 +4,7 @@ import "./PostNow.css";
 import { MdSend, MdOutlineImage, MdClose } from "react-icons/md";
 import { FaTwitter, FaFacebook, FaInstagram, FaLinkedin } from "react-icons/fa";
 import { IoFlashOutline } from "react-icons/io5";
+import { useToast } from "../Toast/ToastProvider";
 
 function PostNow() {
   const [postContent, setPostContent] = useState("");
@@ -16,6 +17,7 @@ function PostNow() {
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [connectedAccounts, setConnectedAccounts] = useState([]);
+  const { showToast } = useToast();
 
   // All available platforms with their details
   const allPlatforms = [
@@ -143,7 +145,7 @@ function PostNow() {
           const pageToken = sessionStorage.getItem("fb_page_token");
 
           if (!pageId || !pageToken) {
-            alert("No Facebook Page connected!");
+            showToast({ message: "No Facebook Page connected!", type: "warning" });
             postsFailed++;
             return;
           }
@@ -168,13 +170,13 @@ function PostNow() {
                 } else {
                   console.error("❌ Facebook file post error:", data.error);
                   postsFailed++;
-                  alert("Failed to post file to Facebook");
+                  showToast({ message: "Failed to post file to Facebook", type: "error" });
                 }
               })
               .catch((err) => {
                 console.error("❌ Network error:", err);
                 postsFailed++;
-                alert("Network error while posting file.");
+                showToast({ message: "Network error while posting file.", type: "error" });
               });
 
           } else if (imageUrl.trim()) {
@@ -191,7 +193,7 @@ function PostNow() {
                 } else {
                   console.error("❌ Facebook photo URL post error:", response.error);
                   postsFailed++;
-                  alert("Failed to post photo URL to Facebook");
+                  showToast({ message: "Failed to post photo URL to Facebook", type: "error" });
                 }
               }
             );
@@ -209,7 +211,7 @@ function PostNow() {
                 } else {
                   console.error("❌ Facebook text post error:", response.error);
                   postsFailed++;
-                  alert("Failed to post text to Facebook");
+                  showToast({ message: "Failed to post text to Facebook", type: "error" });
                 }
               }
             );
@@ -237,7 +239,7 @@ function PostNow() {
 
     } catch (error) {
       console.error('Error posting:', error);
-      alert('Failed to post. Please try again.');
+      showToast({ message: 'Failed to post. Please try again.', type: 'error' });
     } finally {
       setIsPosting(false);
     }

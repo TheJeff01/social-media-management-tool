@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "./ThemeContext";
+import { ToastProvider } from "./components/Toast/ToastProvider";
+import { ConfirmProvider } from "./components/Confirm/ConfirmProvider";
 import Layout from "./Layout";
 import Dashboard from "./pages/Dashboard/Dashboard";
 import Scheduler from "./pages/scheduler/Scheduler";
@@ -102,8 +104,10 @@ function App() {
 
   return (
     <ThemeProvider>
-      <Router>
-        <Routes>
+      <ToastProvider>
+        <ConfirmProvider>
+          <Router>
+          <Routes>
           {/* Public route - Login page */}
           <Route 
             path="/login" 
@@ -129,7 +133,9 @@ function App() {
             } 
           />
         </Routes>
-      </Router>
+          </Router>
+        </ConfirmProvider>
+      </ToastProvider>
     </ThemeProvider>
   );
 }
