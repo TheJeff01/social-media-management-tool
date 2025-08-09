@@ -1,6 +1,7 @@
-// App.jsx - Updated with authentication
+// App.jsx - Updated with authentication and theme support
 import React, { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { ThemeProvider } from "./ThemeContext";
 import Layout from "./Layout";
 import Dashboard from "./pages/Dashboard/Dashboard";
 import Scheduler from "./pages/scheduler/Scheduler";
@@ -100,34 +101,36 @@ function App() {
   };
 
   return (
-    <Router>
-      <Routes>
-        {/* Public route - Login page */}
-        <Route 
-          path="/login" 
-          element={
-            isAuthenticated ? 
-            <Navigate to="/" replace /> : 
-            <Login onLogin={handleLogin} />
-          } 
-        />
-        
-        {/* Protected routes that need the layout (sidebar + header) */}
-        <Route path="/" element={<ProtectedRoute><Layout onLogout={handleLogout} /></ProtectedRoute>}>
-          <Route index element={<Dashboard />} />
-          <Route path="scheduler" element={<Scheduler />} />
-          <Route path="accounts" element={<Accounts />} />
-        </Route>
-        
-        {/* Catch all route - redirect to login if not authenticated, dashboard if authenticated */}
-        <Route 
-          path="*" 
-          element={
-            <Navigate to={isAuthenticated ? "/" : "/login"} replace />
-          } 
-        />
-      </Routes>
-    </Router>
+    <ThemeProvider>
+      <Router>
+        <Routes>
+          {/* Public route - Login page */}
+          <Route 
+            path="/login" 
+            element={
+              isAuthenticated ? 
+              <Navigate to="/" replace /> : 
+              <Login onLogin={handleLogin} />
+            } 
+          />
+          
+          {/* Protected routes that need the layout (sidebar + header) */}
+          <Route path="/" element={<ProtectedRoute><Layout onLogout={handleLogout} /></ProtectedRoute>}>
+            <Route index element={<Dashboard />} />
+            <Route path="scheduler" element={<Scheduler />} />
+            <Route path="accounts" element={<Accounts />} />
+          </Route>
+          
+          {/* Catch all route - redirect to login if not authenticated, dashboard if authenticated */}
+          <Route 
+            path="*" 
+            element={
+              <Navigate to={isAuthenticated ? "/" : "/login"} replace />
+            } 
+          />
+        </Routes>
+      </Router>
+    </ThemeProvider>
   );
 }
 

@@ -7,6 +7,13 @@
   width: 250px;
   background: var(--primary-gradient);
   border-right: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.3s ease;
+}
+
+/* Light theme sidebar adjustments */
+[data-theme="light"] .desktop-sidebar {
+  border-right: 1px solid rgba(0, 0, 0, 0.1);
+  color: white; /* Keep text white on gradient background */
 }
 
 .sidebar-item {
@@ -49,6 +56,12 @@
   font-size: 16px;
 }
 
+/* Light theme logout button */
+[data-theme="light"] .logout-button {
+  background: white;
+  color: var(--primary-color);
+}
+
 .logout-button:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
@@ -70,7 +83,12 @@
   box-shadow: var(--shadow-sm);
   color: var(--accent-color);
   transition: all 0.3s ease;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(128, 128, 128, 0.1);
+}
+
+/* Light theme menu icon */
+[data-theme="light"] .menu-icon {
+  border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 .menu-icon:hover {
@@ -92,6 +110,11 @@
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   transform: translateX(-100%);
   opacity: 0;
+}
+
+/* Light theme overlay */
+[data-theme="light"] .overlay {
+  background-color: rgba(0, 0, 0, 0.6);
 }
 
 .overlay-open {
@@ -129,6 +152,13 @@
   justify-content: space-between;
   box-shadow: var(--shadow-lg);
   border-right: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.3s ease;
+}
+
+/* Light theme mobile sidebar */
+[data-theme="light"] .mobile-sidebar {
+  border-right: 1px solid rgba(0, 0, 0, 0.1);
+  color: white; /* Keep text white on gradient background */
 }
 
 .close-icon {
@@ -169,7 +199,7 @@
   }
 }
 
-/* Enhanced icon animations with dark theme glow */
+/* Enhanced icon animations with theme-aware glow */
 .sidebar-item .links svg {
   transition: all 0.3s ease;
   filter: drop-shadow(0 0 2px rgba(0, 198, 255, 0.3));

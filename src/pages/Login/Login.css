@@ -6,9 +6,10 @@
   background: var(--bg-primary);
   position: relative;
   overflow: hidden;
+  transition: all 0.3s ease;
 }
 
-/* Dark theme animated background */
+/* Animated background */
 .login::before {
   content: '';
   position: absolute;
@@ -20,6 +21,12 @@
   opacity: 0.05;
   animation: rotateDark 25s linear infinite;
   z-index: 0;
+  transition: all 0.3s ease;
+}
+
+/* Light theme background animation */
+[data-theme="light"] .login::before {
+  opacity: 0.03;
 }
 
 @keyframes rotateDark {
@@ -41,7 +48,13 @@
   position: relative;
   z-index: 1;
   backdrop-filter: blur(15px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(128, 128, 128, 0.1);
+  transition: all 0.3s ease;
+}
+
+/* Light theme login form */
+[data-theme="light"] .login-form {
+  border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 .login-form h1 {
@@ -54,6 +67,7 @@
   font-weight: 700;
   text-align: center;
   text-shadow: 0 0 30px rgba(0, 198, 255, 0.3);
+  transition: all 0.3s ease;
 }
 
 form {
@@ -64,7 +78,7 @@ form {
 
 form input {
   padding: 18px 20px;
-  border: 2px solid rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(128, 128, 128, 0.1);
   border-radius: var(--radius-md);
   background: var(--bg-card);
   color: var(--text-primary);
@@ -73,6 +87,11 @@ form input {
   transition: all 0.3s ease;
   outline: none;
   width: 100%;
+}
+
+/* Light theme form inputs */
+[data-theme="light"] form input {
+  border: 2px solid rgba(0, 0, 0, 0.1);
 }
 
 form input:focus {
@@ -134,7 +153,12 @@ span:hover {
   margin-top: 15px;
   position: relative;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(128, 128, 128, 0.1);
+}
+
+/* Light theme login button */
+[data-theme="light"] .login-btn {
+  border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 .login-btn::before {
@@ -163,7 +187,7 @@ span:hover {
   transform: translateY(-1px);
 }
 
-/* Dark theme form switch styling */
+/* Form switch styling */
 .form-switch {
   text-align: center;
   padding: 15px 0;
@@ -171,6 +195,12 @@ span:hover {
   border-radius: var(--radius-md);
   margin: 10px 0;
   border: 1px solid rgba(0, 198, 255, 0.1);
+  transition: all 0.3s ease;
+}
+
+/* Light theme form switch */
+[data-theme="light"] .form-switch {
+  background: rgba(0, 198, 255, 0.03);
 }
 
 /* Responsive design */
@@ -194,7 +224,7 @@ span:hover {
   }
 }
 
-/* Dark theme loading state */
+/* Loading state */
 .login-btn.loading {
   opacity: 0.8;
   cursor: not-allowed;

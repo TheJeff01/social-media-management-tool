@@ -1,0 +1,130 @@
+/* ThemeToggle.css - Theme toggle switch styles */
+.theme-toggle {
+  position: relative;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: var(--radius-md);
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.theme-toggle:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: scale(1.05);
+}
+
+.theme-toggle-track {
+  position: relative;
+  width: 60px;
+  height: 30px;
+  background: var(--bg-surface);
+  border-radius: 15px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--shadow-sm);
+}
+
+[data-theme="light"] .theme-toggle-track {
+  background: var(--bg-surface);
+  border-color: rgba(0, 0, 0, 0.2);
+}
+
+.theme-toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 22px;
+  height: 22px;
+  background: var(--accent-gradient);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 12px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transform: translateX(0);
+}
+
+[data-theme="light"] .theme-toggle-thumb {
+  transform: translateX(30px);
+  background: var(--accent-gradient);
+}
+
+.theme-toggle-thumb svg {
+  font-size: 12px;
+  transition: all 0.3s ease;
+}
+
+/* Hover effects */
+.theme-toggle:hover .theme-toggle-track {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px rgba(0, 198, 255, 0.2);
+}
+
+.theme-toggle:hover .theme-toggle-thumb {
+  transform: scale(1.1) translateX(0);
+  box-shadow: 0 4px 15px rgba(0, 198, 255, 0.4);
+}
+
+[data-theme="light"] .theme-toggle:hover .theme-toggle-thumb {
+  transform: scale(1.1) translateX(30px);
+}
+
+/* Active state */
+.theme-toggle:active .theme-toggle-thumb {
+  transform: scale(0.95) translateX(0);
+}
+
+[data-theme="light"] .theme-toggle:active .theme-toggle-thumb {
+  transform: scale(0.95) translateX(30px);
+}
+
+/* Animation when theme changes */
+@keyframes themeSwitch {
+  0% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(180deg) scale(1.2);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.theme-toggle-thumb {
+  animation: themeSwitch 0.6s ease-in-out;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .theme-toggle-track {
+    width: 50px;
+    height: 26px;
+    border-radius: 13px;
+  }
+  
+  .theme-toggle-thumb {
+    width: 18px;
+    height: 18px;
+    font-size: 10px;
+  }
+  
+  [data-theme="light"] .theme-toggle-thumb {
+    transform: translateX(24px);
+  }
+  
+  .theme-toggle:hover .theme-toggle-thumb {
+    transform: scale(1.1) translateX(0);
+  }
+  
+  [data-theme="light"] .theme-toggle:hover .theme-toggle-thumb {
+    transform: scale(1.1) translateX(24px);
+  }
+}

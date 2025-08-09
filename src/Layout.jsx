@@ -1,10 +1,11 @@
-// Layout.jsx - Updated with authentication and user info
+// Layout.jsx - Updated with authentication, user info, and theme toggle
 import React, { useState, useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { CiBellOn } from "react-icons/ci";
 import { FaRegCircleUser } from "react-icons/fa6";
 import { MdLogout } from "react-icons/md";
 import Sidebar from "./components/sidebar/Sidebar";
+import ThemeToggle from "./ThemeToggle";
 
 function Layout({ onLogout }) {
   const location = useLocation();
@@ -83,6 +84,8 @@ function Layout({ onLogout }) {
             </div>
             
             <div className="notification-user">
+              <ThemeToggle />
+              
               <div style={{ position: 'relative' }}>
                 <CiBellOn />
                 {/* Notification badge */}

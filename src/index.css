@@ -1,14 +1,23 @@
 @import url("https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap");
 
 :root {
-  /* Dark Modern Theme */
-  --primary-gradient: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+  /* Common colors for both themes */
   --accent-gradient: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%);
   --secondary-gradient: linear-gradient(135deg, #667db6 0%, #0082c8 100%);
-  
-  /* Solid fallback colors */
-  --primary-color: #2c3e50;
   --accent-color: #00c6ff;
+  
+  /* Border radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+}
+
+/* Dark Theme (Default) */
+:root,
+[data-theme="dark"] {
+  /* Dark theme gradients */
+  --primary-gradient: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+  --primary-color: #2c3e50;
   --secondary-color: #34495e;
   
   /* Dark theme background colors */
@@ -27,11 +36,31 @@
   --shadow-sm: 0 2px 8px rgba(0,0,0,0.3);
   --shadow-md: 0 8px 25px rgba(0,0,0,0.4);
   --shadow-lg: 0 15px 35px rgba(0,0,0,0.5);
+}
+
+/* Light Theme */
+[data-theme="light"] {
+  /* Light theme gradients */
+  --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  --primary-color: #667eea;
+  --secondary-color: #764ba2;
   
-  /* Border radius */
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 20px;
+  /* Light theme background colors */
+  --bg-primary: #f8fafc;
+  --bg-secondary: #ffffff;
+  --bg-card: #ffffff;
+  --bg-surface: #f1f5f9;
+  
+  /* Light theme text colors */
+  --text-primary: #1a202c;
+  --text-secondary: #2d3748;
+  --text-light: #4a5568;
+  --text-muted: #718096;
+  
+  /* Shadow and effects for light theme */
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.06);
+  --shadow-lg: 0 10px 15px rgba(0,0,0,0.1), 0 4px 6px rgba(0,0,0,0.05);
 }
 
 * {
@@ -45,6 +74,7 @@ body {
   background: var(--bg-primary);
   color: var(--text-primary);
   line-height: 1.6;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 .layout {
@@ -54,6 +84,7 @@ body {
   margin: 0 auto;
   background: var(--bg-secondary);
   box-shadow: var(--shadow-lg);
+  transition: all 0.3s ease;
 }
 
 .app-header {
@@ -64,6 +95,7 @@ body {
   background: var(--bg-secondary);
   border-radius: var(--radius-md);
   margin-bottom: 20px;
+  transition: all 0.3s ease;
 }
 
 .app-header h1 {
@@ -83,9 +115,10 @@ body {
   background: var(--bg-primary);
   overflow-y: scroll;
   -webkit-overflow-scrolling: hidden;
+  transition: all 0.3s ease;
 }
 
-/* Subtle dark background pattern */
+/* Subtle background pattern */
 .app-container::before {
   content: '';
   position: absolute;
@@ -97,16 +130,17 @@ body {
   opacity: 0.03;
   border-radius: var(--radius-lg);
   pointer-events: none;
+  transition: all 0.3s ease;
 }
 
-/* Header icons with dark theme styling */
+/* Header icons styling */
 .notification-user {
   display: flex;
   align-items: center;
   gap: 20px;
 }
 
-.notification-user > * {
+.notification-user > *:not(.theme-toggle) {
   font-size: 2.5rem !important;
   padding: 16px;
   border-radius: var(--radius-md);
@@ -120,10 +154,17 @@ body {
   justify-content: center;
   min-width: 60px;
   min-height: 60px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(128, 128, 128, 0.1);
 }
 
-.notification-user > *:hover {
+/* Light theme specific styling for notification icons */
+[data-theme="light"] .notification-user > *:not(.theme-toggle) {
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+}
+
+.notification-user > *:not(.theme-toggle):hover {
   transform: translateY(-3px) scale(1.05);
   box-shadow: var(--shadow-md);
   background: var(--accent-gradient);
@@ -156,7 +197,7 @@ body {
     gap: 15px;
   }
     
-  .notification-user > * {
+  .notification-user > *:not(.theme-toggle) {
     min-width: 50px;
     min-height: 50px;
     padding: 12px;
@@ -180,7 +221,7 @@ body {
   }
 }
 
-/* Dark theme button styles */
+/* Button styles with theme support */
 .btn-primary {
   background: var(--primary-gradient);
   color: white;
@@ -191,13 +232,21 @@ body {
   cursor: pointer;
   transition: all 0.3s ease;
   box-shadow: var(--shadow-sm);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(128, 128, 128, 0.1);
+}
+
+[data-theme="light"] .btn-primary {
+  border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 .btn-primary:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
-  border-color: rgba(255, 255, 255, 0.2);
+  border-color: rgba(128, 128, 128, 0.2);
+}
+
+[data-theme="light"] .btn-primary:hover {
+  border-color: rgba(0, 0, 0, 0.2);
 }
 
 .btn-secondary {
@@ -217,18 +266,34 @@ body {
   box-shadow: var(--shadow-md);
 }
 
-/* Dark theme card styles */
+/* Card styles with theme support */
 .card {
   background: var(--bg-card);
   border-radius: var(--radius-md);
   padding: 24px;
   box-shadow: var(--shadow-sm);
   transition: all 0.3s ease;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(128, 128, 128, 0.1);
+}
+
+[data-theme="light"] .card {
+  border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 .card:hover {
   box-shadow: var(--shadow-md);
   transform: translateY(-2px);
-  border-color: rgba(255, 255, 255, 0.2);
+  border-color: rgba(128, 128, 128, 0.2);
+}
+
+[data-theme="light"] .card:hover {
+  border-color: rgba(0, 0, 0, 0.2);
+}
+
+/* Theme transition animations */
+* {
+  transition: background-color 0.3s ease, 
+              color 0.3s ease, 
+              border-color 0.3s ease,
+              box-shadow 0.3s ease;
 }

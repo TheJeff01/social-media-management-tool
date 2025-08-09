@@ -6,6 +6,7 @@ import { IoClose } from "react-icons/io5";
 import { IoHomeOutline } from "react-icons/io5";
 import { AiOutlineSchedule } from "react-icons/ai";
 import { MdOutlineManageAccounts, MdLogout } from "react-icons/md";
+import ThemeToggle from "../../ThemeToggle";
 
 const Sidebar = ({ onLogout }) => {
   const [isSideMenuOpen, setMenu] = useState(false);
@@ -33,6 +34,15 @@ const Sidebar = ({ onLogout }) => {
       {/* Desktop Sidebar */}
       <div className="desktop-sidebar">
         <div>
+          <div style={{ 
+            marginBottom: '20px', 
+            display: 'flex', 
+            justifyContent: 'center',
+            paddingBottom: '15px',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
+          }}>
+            <ThemeToggle />
+          </div>
           {navigationItems.map((item, index) => (
             <div key={index} className="sidebar-item">
               <Link to={item.link} className="links">
@@ -65,6 +75,15 @@ const Sidebar = ({ onLogout }) => {
           {/* Close button & nav links */}
           <div className="sidebar-content">
             <IoClose onClick={() => setMenu(false)} className="close-icon" />
+            <div style={{ 
+              marginBottom: '20px', 
+              display: 'flex', 
+              justifyContent: 'center',
+              paddingBottom: '15px',
+              borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
+            }}>
+              <ThemeToggle />
+            </div>
             {navigationItems.map((item, index) => (
               <div key={index} className="sidebar-item">
                 <Link 
