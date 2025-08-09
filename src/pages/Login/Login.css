@@ -72,6 +72,7 @@ form input {
   font-weight: 500;
   transition: all 0.3s ease;
   outline: none;
+  width: 100%;
 }
 
 form input:focus {

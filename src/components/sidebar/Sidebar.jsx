@@ -5,9 +5,9 @@ import { CiMenuFries } from "react-icons/ci";
 import { IoClose } from "react-icons/io5";
 import { IoHomeOutline } from "react-icons/io5";
 import { AiOutlineSchedule } from "react-icons/ai";
-import { MdOutlineManageAccounts } from "react-icons/md";
+import { MdOutlineManageAccounts, MdLogout } from "react-icons/md";
 
-const Sidebar = () => {
+const Sidebar = ({ onLogout }) => {
   const [isSideMenuOpen, setMenu] = useState(false);
   
   const navigationItems = [
@@ -18,6 +18,13 @@ const Sidebar = () => {
 
   // Function to close mobile menu when link is clicked
   const handleLinkClick = () => {
+    setMenu(false);
+  };
+
+  const handleLogout = () => {
+    if (window.confirm('Are you sure you want to log out?')) {
+      onLogout();
+    }
     setMenu(false);
   };
 
@@ -34,7 +41,19 @@ const Sidebar = () => {
             </div>
           ))}
         </div>
-        <Link to="/login" className="logout-button">Log Out</Link>
+        <button 
+          onClick={handleLogout}
+          className="logout-button"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px'
+          }}
+        >
+          <MdLogout />
+          Log Out
+        </button>
       </div>
 
       {/* Mobile menu icon */}
@@ -58,13 +77,19 @@ const Sidebar = () => {
               </div>
             ))}
           </div>
-          <Link 
-            to="/login" 
+          <button 
+            onClick={handleLogout}
             className="logout-button"
-            onClick={handleLinkClick}  // Close menu when clicked
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px'
+            }}
           >
+            <MdLogout />
             Log Out
-          </Link>
+          </button>
         </section>
       </div>
     </div>
