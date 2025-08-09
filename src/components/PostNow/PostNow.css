@@ -1,4 +1,4 @@
-/* PostNow Component Styles */
+/* PostNow Component Styles - Enhanced */
 .post-now-section {
   background: var(--bg-card);
   border-radius: var(--radius-lg);
@@ -161,6 +161,7 @@
   box-sizing: border-box;
   z-index: 1;
   position: relative;
+  min-height: 100px;
 }
 
 .quick-post-textarea::placeholder {
@@ -168,44 +169,161 @@
   font-weight: 500;
 }
 
+/* Image Upload Section */
+.image-upload-section {
+  margin-bottom: 15px;
+}
+
+.image-file-input {
+  display: none;
+}
+
+.image-upload-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  border: 2px dashed rgba(255, 255, 255, 0.2);
+  padding: 12px 18px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  font-size: 14px;
+}
+
+.image-upload-label:hover {
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+  background: rgba(0, 198, 255, 0.05);
+  transform: translateY(-2px);
+}
+
+.image-upload-label svg {
+  font-size: 1.2rem;
+}
+
+/* Image Preview Container */
+.image-preview-container {
+  margin-bottom: 15px;
+}
+
+.image-preview {
+  position: relative;
+  display: inline-block;
+  max-width: 200px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.3s ease;
+}
+
+.image-preview:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--accent-color);
+  transform: translateY(-2px);
+}
+
+.image-preview img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius-md);
+  transition: all 0.3s ease;
+}
+
+.image-preview img:hover {
+  transform: scale(1.02);
+}
+
+.close-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+}
+
+.close-btn:hover {
+  background: rgba(239, 68, 68, 0.8);
+  transform: scale(1.1);
+}
+
+/* Image Modal */
+.image-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.image-modal-content {
+  position: relative;
+  max-width: 90vw;
+  max-height: 90vh;
+  animation: scaleIn 0.3s ease-out;
+}
+
+.image-modal-content img {
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.image-modal-close {
+  position: absolute;
+  top: -15px;
+  right: -15px;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 35px;
+  height: 35px;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.image-modal-close:hover {
+  background: rgba(239, 68, 68, 0.9);
+  transform: scale(1.1);
+}
+
 .quick-post-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-top: 10px;
+  padding-top: 15px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.quick-attachments {
-  display: flex;
-  gap: 8px;
-}
-
-.quick-attachment-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 35px;
-  height: 35px;
-  background: var(--bg-card);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  color: var(--text-muted);
-  font-size: 1.1rem;
-  transition: all 0.3s ease;
-}
-
-.quick-attachment-btn:hover {
-  border-color: var(--accent-color);
-  color: var(--accent-color);
-  transform: scale(1.05);
-}
-
-.quick-post-actions {
-  display: flex;
-  align-items: center;
-  gap: 15px;
 }
 
 .character-count-small {
@@ -221,7 +339,7 @@
   background: var(--accent-gradient);
   color: white;
   border: none;
-  padding: 10px 20px;
+  padding: 12px 24px;
   border-radius: var(--radius-md);
   cursor: pointer;
   font-weight: 600;
@@ -263,7 +381,71 @@
   box-shadow: var(--shadow-sm);
 }
 
-/* Responsive Design for PostNow Component */
+/* Loading Overlay */
+.spinner-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.loading-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  background: var(--bg-card);
+  padding: 40px;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.loading-content p {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.spinner {
+  border: 4px solid rgba(255, 255, 255, 0.1);
+  border-top: 4px solid var(--accent-color);
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Responsive Design */
 @media (max-width: 768px) {
   .post-now-section {
     padding: 20px;
@@ -286,8 +468,18 @@
     align-items: stretch;
   }
   
-  .quick-post-actions {
-    justify-content: space-between;
+  .post-now-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .image-preview {
+    max-width: 150px;
+  }
+
+  .loading-content {
+    margin: 20px;
+    padding: 30px;
   }
 }
 
@@ -301,9 +493,17 @@
     height: 35px;
     font-size: 1rem;
   }
-  
-  .post-now-btn {
-    width: 100%;
-    justify-content: center;
+
+  .image-modal-content {
+    max-width: 95vw;
+    max-height: 85vh;
+  }
+
+  .image-modal-close {
+    top: -10px;
+    right: -10px;
+    width: 30px;
+    height: 30px;
+    font-size: 16px;
   }
 }

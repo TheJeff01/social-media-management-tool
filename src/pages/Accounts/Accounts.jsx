@@ -1,23 +1,13 @@
 // Accounts.jsx - Social Media Account Management
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './Accounts.css';
 import { 
-  FaTwitter, 
-  FaFacebook, 
-  FaInstagram, 
-  FaLinkedin, 
-  FaYoutube, 
-  FaTiktok,
-  FaCheckCircle,
-  FaExclamationTriangle 
+  FaTwitter, FaFacebook, FaInstagram, FaLinkedin, FaYoutube, FaTiktok,
+  FaCheckCircle, FaExclamationTriangle 
 } from "react-icons/fa";
 import { 
-  MdAdd, 
-  MdSettings, 
-  MdDelete, 
-  MdRefresh,
-  MdVisibility,
-  MdVisibilityOff 
+  MdAdd, MdSettings, MdDelete, MdRefresh,
+  MdVisibility, MdVisibilityOff 
 } from "react-icons/md";
 import { IoLinkOutline, IoStatsChart } from "react-icons/io5";
 import { BsShieldCheck } from "react-icons/bs";
@@ -26,82 +16,37 @@ function Accounts() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedPlatform, setSelectedPlatform] = useState(null);
 
+  // Load FB SDK
+  useEffect(() => {
+    window.fbAsyncInit = function () {
+      FB.init({
+        appId: '1269691314882966', // Your Facebook App ID
+        cookie: true,
+        xfbml: true,
+        version: 'v20.0',
+      });
+    };
+    (function (d, s, id) {
+      var js, fjs = d.getElementsByTagName(s)[0];
+      if (d.getElementById(id)) return;
+      js = d.createElement(s); js.id = id;
+      js.src = "https://connect.facebook.net/en_US/sdk.js";
+      fjs.parentNode.insertBefore(js, fjs);
+    }(document, 'script', 'facebook-jssdk'));
+  }, []);
+
   // Available platforms to connect
   const availablePlatforms = [
-    { 
-      name: "Twitter", 
-      icon: <FaTwitter />, 
-      color: "#1DA1F2",
-      description: "Connect your Twitter account to share tweets and engage with your audience"
-    },
-    { 
-      name: "Facebook", 
-      icon: <FaFacebook />, 
-      color: "#4267B2",
-      description: "Manage your Facebook pages and personal profile posts"
-    },
-    { 
-      name: "Instagram", 
-      icon: <FaInstagram />, 
-      color: "#E4405F",
-      description: "Share photos, stories, and reels to your Instagram account"
-    },
-    { 
-      name: "LinkedIn", 
-      icon: <FaLinkedin />, 
-      color: "#0077B5",
-      description: "Professional networking and business content sharing"
-    },
-    { 
-      name: "YouTube", 
-      icon: <FaYoutube />, 
-      color: "#FF0000",
-      description: "Upload and manage your YouTube video content"
-    },
-    { 
-      name: "TikTok", 
-      icon: <FaTiktok />, 
-      color: "#000000",
-      description: "Create and share short-form video content"
-    }
+    { name: "Twitter", icon: <FaTwitter />, color: "#1DA1F2", description: "Connect your Twitter account to share tweets and engage with your audience" },
+    { name: "Facebook", icon: <FaFacebook />, color: "#4267B2", description: "Manage your Facebook pages and personal profile posts" },
+    { name: "Instagram", icon: <FaInstagram />, color: "#E4405F", description: "Share photos, stories, and reels to your Instagram account" },
+    { name: "LinkedIn", icon: <FaLinkedin />, color: "#0077B5", description: "Professional networking and business content sharing" },
+    { name: "YouTube", icon: <FaYoutube />, color: "#FF0000", description: "Upload and manage your YouTube video content" },
+    { name: "TikTok", icon: <FaTiktok />, color: "#000000", description: "Create and share short-form video content" }
   ];
 
-  // Connected accounts (mock data)
-  const [connectedAccounts, setConnectedAccounts] = useState([
-    {
-      id: 1,
-      platform: "Twitter",
-      username: "@johndoe",
-      displayName: "John Doe",
-      followers: "12.5K",
-      avatar: null,
-      status: "active",
-      lastSync: "2 hours ago",
-      isPublic: true
-    },
-    {
-      id: 2,
-      platform: "Instagram",
-      username: "@john.doe.official",
-      displayName: "John Doe",
-      followers: "8.2K",
-      avatar: null,
-      status: "warning",
-      lastSync: "1 day ago",
-      isPublic: false
-    },
-    {
-      id: 3,
-      platform: "LinkedIn",
-      username: "John Doe",
-      displayName: "Senior Developer at TechCorp",
-      followers: "2.1K",
-      avatar: null,
-      status: "active",
-      lastSync: "5 minutes ago",
-      isPublic: true
-    }
-  ]);
+  // Connected accounts
+  const [connectedAccounts, setConnectedAccounts] = useState([]);
 
   const handleConnectAccount = (platform) => {
     setSelectedPlatform(platform);
@@ -115,7 +60,6 @@ function Accounts() {
   };
 
   const handleRefreshAccount = (accountId) => {
-    // Mock refresh functionality
     setConnectedAccounts(prev => 
       prev.map(acc => 
         acc.id === accountId 
@@ -148,6 +92,47 @@ function Accounts() {
       default:
         return <FaCheckCircle className="status-icon active" />;
     }
+  };
+
+  // Facebook Connect Logic
+  const connectFacebook = () => {
+    FB.login(
+      function (response) {
+        if (response.authResponse) {
+          const userToken = response.authResponse.accessToken;
+
+          FB.api("/me/accounts", { access_token: userToken }, function (pages) {
+            if (pages && pages.data && pages.data.length > 0) {
+              const page = pages.data[0]; // Pick first page for now
+              sessionStorage.setItem("fb_page_id", page.id);
+              sessionStorage.setItem("fb_page_token", page.access_token);
+
+              setConnectedAccounts(prev => [
+                ...prev,
+                {
+                  id: Date.now(),
+                  platform: "Facebook",
+                  username: page.name,
+                  displayName: page.name,
+                  followers: "—",
+                  avatar: null,
+                  status: "active",
+                  lastSync: "Just now",
+                  isPublic: true
+                }
+              ]);
+
+              alert(`Connected to Facebook Page: ${page.name}`);
+            } else {
+              alert("No Facebook Pages found for this account.");
+            }
+          });
+        } else {
+          alert("Facebook login cancelled or not authorized.");
+        }
+      },
+      { scope: "pages_manage_posts,pages_show_list,pages_read_engagement" }
+    );
   };
 
   return (
@@ -216,28 +201,16 @@ function Accounts() {
                 </div>
 
                 <div className="account-actions">
-                  <button 
-                    className="action-btn refresh"
-                    onClick={() => handleRefreshAccount(account.id)}
-                    title="Refresh account data"
-                  >
+                  <button className="action-btn refresh" onClick={() => handleRefreshAccount(account.id)} title="Refresh account data">
                     <MdRefresh />
                   </button>
-                  <button 
-                    className="action-btn visibility"
-                    onClick={() => toggleAccountVisibility(account.id)}
-                    title={account.isPublic ? "Make private" : "Make public"}
-                  >
+                  <button className="action-btn visibility" onClick={() => toggleAccountVisibility(account.id)} title={account.isPublic ? "Make private" : "Make public"}>
                     {account.isPublic ? <MdVisibilityOff /> : <MdVisibility />}
                   </button>
                   <button className="action-btn settings" title="Account settings">
                     <MdSettings />
                   </button>
-                  <button 
-                    className="action-btn delete"
-                    onClick={() => handleDisconnectAccount(account.id)}
-                    title="Disconnect account"
-                  >
+                  <button className="action-btn delete" onClick={() => handleDisconnectAccount(account.id)} title="Disconnect account">
                     <MdDelete />
                   </button>
                 </div>
@@ -246,6 +219,15 @@ function Accounts() {
           })}
         </div>
       </div>
+
+      {/* Debug: Show stored FB Page info */}
+      {sessionStorage.getItem("fb_page_id") && (
+        <div style={{ marginTop: "20px", padding: "10px", border: "1px solid #ccc", background: "#fafafa" }}>
+          <h4>Facebook Connection (Test View)</h4>
+          <p><strong>Page ID:</strong> {sessionStorage.getItem("fb_page_id")}</p>
+          <p><strong>Page Token:</strong> {sessionStorage.getItem("fb_page_token")}</p>
+        </div>
+      )}
 
       {/* Available Platforms Section */}
       <div className="accounts-section">
@@ -271,13 +253,8 @@ function Accounts() {
                   <h3>{platform.name}</h3>
                 </div>
                 <p className="platform-description">{platform.description}</p>
-                <button 
-                  className="connect-btn"
-                  onClick={() => handleConnectAccount(platform)}
-                  style={{ '--platform-color': platform.color }}
-                >
-                  <MdAdd />
-                  Connect {platform.name}
+                <button className="connect-btn" onClick={() => handleConnectAccount(platform)} style={{ '--platform-color': platform.color }}>
+                  <MdAdd /> Connect {platform.name}
                 </button>
               </div>
             ))}
@@ -319,15 +296,16 @@ function Accounts() {
               </div>
             </div>
             <div className="modal-actions">
-              <button className="btn-cancel" onClick={() => setShowAddModal(false)}>
-                Cancel
-              </button>
+              <button className="btn-cancel" onClick={() => setShowAddModal(false)}>Cancel</button>
               <button 
                 className="btn-connect"
                 style={{ '--platform-color': selectedPlatform.color }}
                 onClick={() => {
-                  // Handle actual connection logic here
-                  alert(`Connecting to ${selectedPlatform.name}...`);
+                  if (selectedPlatform.name === "Facebook") {
+                    connectFacebook();
+                  } else {
+                    alert(`Connecting to ${selectedPlatform.name}...`);
+                  }
                   setShowAddModal(false);
                 }}
               >
