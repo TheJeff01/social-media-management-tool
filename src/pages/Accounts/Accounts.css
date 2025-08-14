@@ -312,6 +312,23 @@
   transform: scale(1.1);
 }
 
+.action-btn.test {
+  background: rgba(0, 119, 181, 0.1);
+  color: #0077B5;
+  border: 1px solid rgba(0, 119, 181, 0.2);
+  font-size: 12px;
+  font-weight: 600;
+  width: auto;
+  padding: 0 8px;
+}
+
+.action-btn.test:hover {
+  background: #0077B5;
+  color: white;
+  transform: scale(1.1);
+  box-shadow: 0 4px 15px rgba(0, 119, 181, 0.4);
+}
+
 /* Available Platforms Grid */
 .available-platforms-grid {
   display: grid;

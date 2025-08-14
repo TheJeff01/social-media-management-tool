@@ -1,13 +1,24 @@
 // Accounts.jsx - Social Media Account Management
-import React, { useState, useEffect } from 'react';
-import './Accounts.css';
-import { 
-  FaTwitter, FaFacebook, FaInstagram, FaLinkedin, FaYoutube, FaTiktok,
-  FaCheckCircle, FaExclamationTriangle 
+import React, { useState, useEffect } from "react";
+import "./Accounts.css";
+import {
+  FaTwitter,
+  FaFacebook,
+  FaInstagram,
+  FaLinkedin,
+  FaYoutube,
+  FaTiktok,
+  FaCheckCircle,
+  FaExclamationTriangle,
 } from "react-icons/fa";
-import { 
-  MdAdd, MdSettings, MdDelete, MdRefresh,
-  MdVisibility, MdVisibilityOff 
+import { SiThreads } from "react-icons/si";
+import {
+  MdAdd,
+  MdSettings,
+  MdDelete,
+  MdRefresh,
+  MdVisibility,
+  MdVisibilityOff,
 } from "react-icons/md";
 import { IoLinkOutline, IoStatsChart } from "react-icons/io5";
 import { BsShieldCheck } from "react-icons/bs";
@@ -19,32 +30,36 @@ function Accounts() {
   const [selectedPlatform, setSelectedPlatform] = useState(null);
   const { showToast } = useToast();
   const { confirm } = useConfirm();
+  const linkedInRedirectUri = `${window.location.origin}/linkedin/callback`;
 
   // Load FB SDK
   useEffect(() => {
     window.fbAsyncInit = function () {
       FB.init({
-        appId: '1269691314882966', // Your Facebook App ID
+        appId: "1269691314882966", // Your Facebook App ID
         cookie: true,
         xfbml: true,
-        version: 'v20.0',
+        version: "v20.0",
       });
     };
     (function (d, s, id) {
-      var js, fjs = d.getElementsByTagName(s)[0];
+      var js,
+        fjs = d.getElementsByTagName(s)[0];
       if (d.getElementById(id)) return;
-      js = d.createElement(s); js.id = id;
+      js = d.createElement(s);
+      js.id = id;
       js.src = "https://connect.facebook.net/en_US/sdk.js";
       fjs.parentNode.insertBefore(js, fjs);
-    }(document, 'script', 'facebook-jssdk'));
+    })(document, "script", "facebook-jssdk");
   }, []);
 
   // Handle Instagram personal account redirect
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get("code");
+    const state = urlParams.get("state");
 
-    if (code) {
+    if (code && state !== "linkedin") {
       const clientId = "1533589677628127";
       const clientSecret = "d29a67bdc2c011c475b383682b2a50a9"; // ⚠ DO NOT USE IN PRODUCTION
       const redirectUri = window.location.origin;
@@ -58,15 +73,17 @@ function Accounts() {
 
       fetch("https://api.instagram.com/oauth/access_token", {
         method: "POST",
-        body: formData
+        body: formData,
       })
-        .then(res => res.json())
-        .then(data => {
+        .then((res) => res.json())
+        .then((data) => {
           if (data.access_token) {
-            fetch(`https://graph.instagram.com/me?fields=id,username,account_type,media_count&access_token=${data.access_token}`)
-              .then(res => res.json())
-              .then(user => {
-                setConnectedAccounts(prev => [
+            fetch(
+              `https://graph.instagram.com/me?fields=id,username,account_type,media_count&access_token=${data.access_token}`
+            )
+              .then((res) => res.json())
+              .then((user) => {
+                setConnectedAccounts((prev) => [
                   ...prev,
                   {
                     id: Date.now(),
@@ -77,30 +94,141 @@ function Accounts() {
                     avatar: null,
                     status: "active",
                     lastSync: "Just now",
-                    isPublic: true
-                  }
+                    isPublic: true,
+                  },
                 ]);
-                showToast({ message: `Connected to Instagram Personal: ${user.username}`, type: 'success' });
-                window.history.replaceState({}, document.title, window.location.pathname); // Clean URL
+                showToast({
+                  message: `Connected to Instagram Personal: ${user.username}`,
+                  type: "success",
+                });
+                window.history.replaceState(
+                  {},
+                  document.title,
+                  window.location.pathname
+                ); // Clean URL
               });
           } else {
-            showToast({ message: "Failed to get Instagram access token", type: 'error' });
+            showToast({
+              message: "Failed to get Instagram access token",
+              type: "error",
+            });
           }
         })
         .catch(() => {
-          showToast({ message: "Error connecting personal Instagram account", type: 'error' });
+          showToast({
+            message: "Error connecting personal Instagram account",
+            type: "error",
+          });
         });
     }
   }, []);
 
+  // Handle LinkedIn OAuth callback
+  useEffect(() => {
+    if (window.location.pathname === "/linkedin/callback") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get("code");
+      const state = urlParams.get("state");
+
+      if (code && state === "linkedin") {
+        const clientId = "77u0w42ew1nipf";
+        const clientSecret = "WPL_AP1.qAXQ97NMN78puouG.eF5mcQ==";
+
+        fetch("https://www.linkedin.com/oauth/v2/accessToken", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: `grant_type=authorization_code&code=${code}&redirect_uri=${encodeURIComponent(
+            linkedInRedirectUri
+          )}&client_id=${clientId}&client_secret=${clientSecret}`,
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.access_token) {
+              sessionStorage.setItem(
+                "linkedin_access_token",
+                data.access_token
+              );
+              return fetch("https://api.linkedin.com/v2/me", {
+                headers: {
+                  Authorization: `Bearer ${data.access_token}`,
+                  "X-Restli-Protocol-Version": "2.0.0",
+                },
+              });
+            }
+          })
+          .then((res) => res?.json())
+          .then((profile) => {
+            if (profile) {
+              setConnectedAccounts((prev) => [
+                ...prev,
+                {
+                  id: Date.now(),
+                  platform: "LinkedIn",
+                  username: `${profile.localizedFirstName} ${profile.localizedLastName}`,
+                  displayName: `${profile.localizedFirstName} ${profile.localizedLastName}`,
+                  followers: "—",
+                  avatar: null,
+                  status: "active",
+                  lastSync: "Just now",
+                  isPublic: true,
+                },
+              ]);
+              showToast({
+                message: `Connected to LinkedIn: ${profile.localizedFirstName} ${profile.localizedLastName}`,
+                type: "success",
+              });
+              window.history.replaceState({}, document.title, "/");
+            }
+          })
+          .catch(() => {
+            showToast({
+              message: "Error connecting LinkedIn account",
+              type: "error",
+            });
+          });
+      }
+    }
+  }, [linkedInRedirectUri, showToast]);
+
   // Available platforms
   const availablePlatforms = [
-    { name: "Twitter", icon: <FaTwitter />, color: "#1DA1F2", description: "Connect your Twitter account to share tweets and engage with your audience" },
-    { name: "Facebook", icon: <FaFacebook />, color: "#4267B2", description: "Manage your Facebook pages and personal profile posts" },
-    { name: "Instagram", icon: <FaInstagram />, color: "#E4405F", description: "Share photos, stories, and reels to your Instagram account" },
-    { name: "LinkedIn", icon: <FaLinkedin />, color: "#0077B5", description: "Professional networking and business content sharing" },
-    { name: "YouTube", icon: <FaYoutube />, color: "#FF0000", description: "Upload and manage your YouTube video content" },
-    { name: "TikTok", icon: <FaTiktok />, color: "#000000", description: "Create and share short-form video content" }
+    {
+      name: "Twitter",
+      icon: <FaTwitter />,
+      color: "#1DA1F2",
+      description:
+        "Connect your Twitter account to share tweets and engage with your audience",
+    },
+    {
+      name: "Facebook",
+      icon: <FaFacebook />,
+      color: "#4267B2",
+      description: "Manage your Facebook pages and personal profile posts",
+    },
+    {
+      name: "Instagram",
+      icon: <FaInstagram />,
+      color: "#E4405F",
+      description: "Share photos, stories, and reels to your Instagram account",
+    },
+    {
+      name: "LinkedIn",
+      icon: <FaLinkedin />,
+      color: "#0077B5",
+      description: "Professional networking and business content sharing",
+    },
+    {
+      name: "YouTube",
+      icon: <FaYoutube />,
+      color: "#FF0000",
+      description: "Upload and manage your YouTube video content",
+    },
+    {
+      name: "TikTok",
+      icon: <FaTiktok />,
+      color: "#000000",
+      description: "Create and share short-form video content",
+    },
   ];
 
   const [connectedAccounts, setConnectedAccounts] = useState([]);
@@ -112,47 +240,47 @@ function Accounts() {
 
   const handleDisconnectAccount = async (accountId) => {
     const ok = await confirm({
-      title: 'Disconnect account',
-      message: 'Are you sure you want to disconnect this account?',
-      confirmText: 'Disconnect',
-      cancelText: 'Cancel',
-      tone: 'danger'
+      title: "Disconnect account",
+      message: "Are you sure you want to disconnect this account?",
+      confirmText: "Disconnect",
+      cancelText: "Cancel",
+      tone: "danger",
     });
     if (ok) {
-      setConnectedAccounts(prev => prev.filter(acc => acc.id !== accountId));
-      showToast({ message: 'Account disconnected', type: 'success' });
+      setConnectedAccounts((prev) =>
+        prev.filter((acc) => acc.id !== accountId)
+      );
+      showToast({ message: "Account disconnected", type: "success" });
     }
   };
 
   const handleRefreshAccount = (accountId) => {
-    setConnectedAccounts(prev => 
-      prev.map(acc => 
-        acc.id === accountId 
-          ? { ...acc, lastSync: 'Just now', status: 'active' }
+    setConnectedAccounts((prev) =>
+      prev.map((acc) =>
+        acc.id === accountId
+          ? { ...acc, lastSync: "Just now", status: "active" }
           : acc
       )
     );
   };
 
   const toggleAccountVisibility = (accountId) => {
-    setConnectedAccounts(prev => 
-      prev.map(acc => 
-        acc.id === accountId 
-          ? { ...acc, isPublic: !acc.isPublic }
-          : acc
+    setConnectedAccounts((prev) =>
+      prev.map((acc) =>
+        acc.id === accountId ? { ...acc, isPublic: !acc.isPublic } : acc
       )
     );
   };
 
   const getPlatformInfo = (platformName) => {
-    return availablePlatforms.find(p => p.name === platformName);
+    return availablePlatforms.find((p) => p.name === platformName);
   };
 
   const getStatusIcon = (status) => {
     switch (status) {
-      case 'active':
+      case "active":
         return <FaCheckCircle className="status-icon active" />;
-      case 'warning':
+      case "warning":
         return <FaExclamationTriangle className="status-icon warning" />;
       default:
         return <FaCheckCircle className="status-icon active" />;
@@ -170,7 +298,7 @@ function Accounts() {
               const page = pages.data[0];
               sessionStorage.setItem("fb_page_id", page.id);
               sessionStorage.setItem("fb_page_token", page.access_token);
-              setConnectedAccounts(prev => [
+              setConnectedAccounts((prev) => [
                 ...prev,
                 {
                   id: Date.now(),
@@ -181,16 +309,25 @@ function Accounts() {
                   avatar: null,
                   status: "active",
                   lastSync: "Just now",
-                  isPublic: true
-                }
+                  isPublic: true,
+                },
               ]);
-              showToast({ message: `Connected to Facebook Page: ${page.name}` , type: 'success' });
+              showToast({
+                message: `Connected to Facebook Page: ${page.name}`,
+                type: "success",
+              });
             } else {
-              showToast({ message: "No Facebook Pages found for this account.", type: 'warning' });
+              showToast({
+                message: "No Facebook Pages found for this account.",
+                type: "warning",
+              });
             }
           });
         } else {
-          showToast({ message: "Facebook login cancelled or not authorized.", type: 'warning' });
+          showToast({
+            message: "Facebook login cancelled or not authorized.",
+            type: "warning",
+          });
         }
       },
       { scope: "pages_manage_posts,pages_show_list,pages_read_engagement" }
@@ -214,7 +351,7 @@ function Accounts() {
                     if (insta.instagram_business_account) {
                       foundInstagram = true;
                       const ig = insta.instagram_business_account;
-                      setConnectedAccounts(prev => [
+                      setConnectedAccounts((prev) => [
                         ...prev,
                         {
                           id: Date.now(),
@@ -225,26 +362,41 @@ function Accounts() {
                           avatar: ig.profile_picture_url || null,
                           status: "active",
                           lastSync: "Just now",
-                          isPublic: true
-                        }
+                          isPublic: true,
+                        },
                       ]);
-                      showToast({ message: `Connected to Instagram: ${ig.username}`, type: 'success' });
+                      showToast({
+                        message: `Connected to Instagram: ${ig.username}`,
+                        type: "success",
+                      });
                     }
                   }
                 );
               });
               if (!foundInstagram) {
-                showToast({ message: "No Instagram Business Accounts found.", type: 'warning' });
+                showToast({
+                  message: "No Instagram Business Accounts found.",
+                  type: "warning",
+                });
               }
             } else {
-              showToast({ message: "No Facebook Pages linked to Instagram found.", type: 'warning' });
+              showToast({
+                message: "No Facebook Pages linked to Instagram found.",
+                type: "warning",
+              });
             }
           });
         } else {
-          showToast({ message: "Instagram login cancelled or not authorized.", type: 'warning' });
+          showToast({
+            message: "Instagram login cancelled or not authorized.",
+            type: "warning",
+          });
         }
       },
-      { scope: "pages_show_list,instagram_basic,instagram_manage_insights,instagram_content_publish" }
+      {
+        scope:
+          "pages_show_list,instagram_basic,instagram_manage_insights,instagram_content_publish",
+      }
     );
   };
 
@@ -256,6 +408,52 @@ function Accounts() {
     const authUrl = `https://api.instagram.com/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}&response_type=code`;
     window.location.href = authUrl;
   };
+  // LinkedIn connect
+  const connectLinkedIn = () => {
+    const clientId = "77u0w42ew1nipf";
+    const scope = "r_liteprofile r_emailaddress w_member_social";
+    const state = "linkedin";
+    const authUrl = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(
+      linkedInRedirectUri
+    )}&scope=${encodeURIComponent(scope)}&state=${state}`;
+    window.location.href = authUrl;
+  };
+
+  // Test LinkedIn
+  const testLinkedInConnection = async () => {
+    const accessToken = sessionStorage.getItem("linkedin_access_token");
+    if (!accessToken) {
+      showToast({
+        message:
+          "No LinkedIn access token found. Please connect your account first.",
+        type: "warning",
+      });
+      return;
+    }
+
+    try {
+      const profileResponse = await fetch("https://api.linkedin.com/v2/me", {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "X-Restli-Protocol-Version": "2.0.0",
+        },
+      });
+
+      const profile = await profileResponse.json();
+      showToast({
+        message: `LinkedIn OK: ${profile.localizedFirstName} ${profile.localizedLastName}`,
+        type: "success",
+      });
+    } catch (error) {
+      showToast({
+        message: `LinkedIn test failed: ${error.message}`,
+        type: "error",
+      });
+    }
+  };
+
+  // Other connect functions (Facebook, Instagram Business, Instagram Personal)
+  // ... keep your existing ones unchanged ...
 
   return (
     <div className="accounts-container">
@@ -279,18 +477,26 @@ function Accounts() {
             return (
               <div key={account.id} className="connected-account-card">
                 <div className="account-header">
-                  <div className="account-platform" style={{ '--platform-color': platformInfo?.color }}>
+                  <div
+                    className="account-platform"
+                    style={{ "--platform-color": platformInfo?.color }}
+                  >
                     {platformInfo?.icon}
                     <span>{account.platform}</span>
                   </div>
-                  <div className="account-status">{getStatusIcon(account.status)}</div>
+                  <div className="account-status">
+                    {getStatusIcon(account.status)}
+                  </div>
                 </div>
                 <div className="account-info">
                   <div className="account-avatar">
                     {account.avatar ? (
                       <img src={account.avatar} alt={account.displayName} />
                     ) : (
-                      <div className="avatar-placeholder" style={{ '--platform-color': platformInfo?.color }}>
+                      <div
+                        className="avatar-placeholder"
+                        style={{ "--platform-color": platformInfo?.color }}
+                      >
                         {account.displayName.charAt(0)}
                       </div>
                     )}
@@ -307,16 +513,53 @@ function Accounts() {
                 <div className="account-meta">
                   <div className="last-sync">Last sync: {account.lastSync}</div>
                   <div className="account-visibility">
-                    {account.isPublic ? (<><MdVisibility /> Public</>) : (<><MdVisibilityOff /> Private</>)}
+                    {account.isPublic ? (
+                      <>
+                        <MdVisibility /> Public
+                      </>
+                    ) : (
+                      <>
+                        <MdVisibilityOff /> Private
+                      </>
+                    )}
                   </div>
                 </div>
                 <div className="account-actions">
-                  <button className="action-btn refresh" onClick={() => handleRefreshAccount(account.id)}><MdRefresh /></button>
-                  <button className="action-btn visibility" onClick={() => toggleAccountVisibility(account.id)}>
+                  <button
+                    className="action-btn refresh"
+                    onClick={() => handleRefreshAccount(account.id)}
+                  >
+                    <MdRefresh />
+                  </button>
+                  <button
+                    className="action-btn visibility"
+                    onClick={() => toggleAccountVisibility(account.id)}
+                  >
                     {account.isPublic ? <MdVisibilityOff /> : <MdVisibility />}
                   </button>
-                  <button className="action-btn settings"><MdSettings /></button>
-                  <button className="action-btn delete" onClick={() => handleDisconnectAccount(account.id)}><MdDelete /></button>
+                  <button className="action-btn settings">
+                    <MdSettings />
+                  </button>
+                  {account.platform === "LinkedIn" && (
+                    <button 
+                      className="action-btn test" 
+                      onClick={testLinkedInConnection}
+                      title="Test LinkedIn connection"
+                      style={{
+                        background: 'rgba(0, 119, 181, 0.1)',
+                        color: '#0077B5',
+                        border: '1px solid rgba(0, 119, 181, 0.2)'
+                      }}
+                    >
+                      Test
+                    </button>
+                  )}
+                  <button
+                    className="action-btn delete"
+                    onClick={() => handleDisconnectAccount(account.id)}
+                  >
+                    <MdDelete />
+                  </button>
                 </div>
               </div>
             );
@@ -327,7 +570,9 @@ function Accounts() {
       {/* Available Platforms */}
       <div className="accounts-section">
         <div className="section-header">
-          <div className="section-icon"><MdAdd /></div>
+          <div className="section-icon">
+            <MdAdd />
+          </div>
           <div className="section-title">
             <h2>Add New Account</h2>
             <p>Connect more social media platforms to expand your reach</p>
@@ -335,17 +580,27 @@ function Accounts() {
         </div>
         <div className="available-platforms-grid">
           {availablePlatforms
-            .filter(platform => !connectedAccounts.some(acc => acc.platform === platform.name))
+            .filter(
+              (platform) =>
+                !connectedAccounts.some((acc) => acc.platform === platform.name)
+            )
             .map((platform) => (
               <div key={platform.name} className="platform-card">
                 <div className="platform-header">
-                  <div className="platform-icon" style={{ '--platform-color': platform.color }}>
+                  <div
+                    className="platform-icon"
+                    style={{ "--platform-color": platform.color }}
+                  >
                     {platform.icon}
                   </div>
                   <h3>{platform.name}</h3>
                 </div>
                 <p className="platform-description">{platform.description}</p>
-                <button className="connect-btn" onClick={() => handleConnectAccount(platform)} style={{ '--platform-color': platform.color }}>
+                <button
+                  className="connect-btn"
+                  onClick={() => handleConnectAccount(platform)}
+                  style={{ "--platform-color": platform.color }}
+                >
                   <MdAdd /> Connect {platform.name}
                 </button>
               </div>
@@ -355,10 +610,51 @@ function Accounts() {
 
       {/* Security Notice */}
       <div className="security-notice">
-        <div className="security-icon"><BsShieldCheck /></div>
+        <div className="security-icon">
+          <BsShieldCheck />
+        </div>
         <div className="security-content">
           <h3>Your accounts are secure</h3>
-          <p>We use industry-standard OAuth 2.0 authentication to securely connect your accounts. We never store your passwords and you can revoke access at any time.</p>
+          <p>
+            We use industry-standard OAuth 2.0 authentication to securely
+            connect your accounts. We never store your passwords and you can
+            revoke access at any time.
+          </p>
+        </div>
+      </div>
+
+      {/* LinkedIn Debug Section */}
+      <div className="accounts-section">
+        <div className="section-header">
+          <div className="section-icon" style={{ background: '#0077B5' }}>
+            <FaLinkedin />
+          </div>
+          <div className="section-title">
+            <h2>LinkedIn Connection Debug</h2>
+            <p>Test and troubleshoot your LinkedIn connection</p>
+          </div>
+        </div>
+        <div style={{ padding: '20px', textAlign: 'center' }}>
+          <button 
+            onClick={testLinkedInConnection}
+            style={{
+              background: '#0077B5',
+              color: 'white',
+              border: 'none',
+              padding: '12px 24px',
+              borderRadius: 'var(--radius-md)',
+              fontSize: '16px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              marginBottom: '15px'
+            }}
+          >
+            Test LinkedIn Connection
+          </button>
+          <div style={{ fontSize: '14px', color: 'var(--text-muted)' }}>
+            <p>Click the button above to test your LinkedIn connection and fetch profile information.</p>
+            <p>Check the browser console for detailed API responses.</p>
+          </div>
         </div>
       </div>
 
@@ -367,14 +663,25 @@ function Accounts() {
         <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
           <div className="connect-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <div className="modal-platform" style={{ '--platform-color': selectedPlatform.color }}>
+              <div
+                className="modal-platform"
+                style={{ "--platform-color": selectedPlatform.color }}
+              >
                 {selectedPlatform.icon}
                 <h2>Connect {selectedPlatform.name}</h2>
               </div>
-              <button className="modal-close" onClick={() => setShowAddModal(false)}>×</button>
+              <button
+                className="modal-close"
+                onClick={() => setShowAddModal(false)}
+              >
+                ×
+              </button>
             </div>
             <div className="modal-content">
-              <p>You'll be redirected to {selectedPlatform.name} to authorize this connection.</p>
+              <p>
+                You'll be redirected to {selectedPlatform.name} to authorize
+                this connection.
+              </p>
               <div className="modal-permissions">
                 <h4>Permissions requested:</h4>
                 <ul>
@@ -386,10 +693,15 @@ function Accounts() {
               </div>
             </div>
             <div className="modal-actions">
-              <button className="btn-cancel" onClick={() => setShowAddModal(false)}>Cancel</button>
-              <button 
+              <button
+                className="btn-cancel"
+                onClick={() => setShowAddModal(false)}
+              >
+                Cancel
+              </button>
+              <button
                 className="btn-connect"
-                style={{ '--platform-color': selectedPlatform.color }}
+                style={{ "--platform-color": selectedPlatform.color }}
                 onClick={() => {
                   if (selectedPlatform.name === "Facebook") {
                     connectFacebook();
@@ -402,8 +714,13 @@ function Accounts() {
                     } else {
                       connectInstagramPersonal();
                     }
+                  } else if (selectedPlatform.name === "LinkedIn") {
+                    connectLinkedIn();
                   } else {
-                    showToast({ message: `Connecting to ${selectedPlatform.name}...`, type: 'info' });
+                    showToast({
+                      message: `Connecting to ${selectedPlatform.name}...`,
+                      type: "info",
+                    });
                   }
                   setShowAddModal(false);
                 }}
