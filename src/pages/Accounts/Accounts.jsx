@@ -39,7 +39,61 @@ function Accounts() {
     }(document, 'script', 'facebook-jssdk'));
   }, []);
 
-  // Available platforms to connect
+  // Handle Instagram personal account redirect
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get("code");
+
+    if (code) {
+      const clientId = "1533589677628127";
+      const clientSecret = "d29a67bdc2c011c475b383682b2a50a9"; // ⚠ DO NOT USE IN PRODUCTION
+      const redirectUri = window.location.origin;
+
+      const formData = new FormData();
+      formData.append("client_id", clientId);
+      formData.append("client_secret", clientSecret);
+      formData.append("grant_type", "authorization_code");
+      formData.append("redirect_uri", redirectUri);
+      formData.append("code", code);
+
+      fetch("https://api.instagram.com/oauth/access_token", {
+        method: "POST",
+        body: formData
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.access_token) {
+            fetch(`https://graph.instagram.com/me?fields=id,username,account_type,media_count&access_token=${data.access_token}`)
+              .then(res => res.json())
+              .then(user => {
+                setConnectedAccounts(prev => [
+                  ...prev,
+                  {
+                    id: Date.now(),
+                    platform: "Instagram",
+                    username: user.username,
+                    displayName: user.username,
+                    followers: "—",
+                    avatar: null,
+                    status: "active",
+                    lastSync: "Just now",
+                    isPublic: true
+                  }
+                ]);
+                showToast({ message: `Connected to Instagram Personal: ${user.username}`, type: 'success' });
+                window.history.replaceState({}, document.title, window.location.pathname); // Clean URL
+              });
+          } else {
+            showToast({ message: "Failed to get Instagram access token", type: 'error' });
+          }
+        })
+        .catch(() => {
+          showToast({ message: "Error connecting personal Instagram account", type: 'error' });
+        });
+    }
+  }, []);
+
+  // Available platforms
   const availablePlatforms = [
     { name: "Twitter", icon: <FaTwitter />, color: "#1DA1F2", description: "Connect your Twitter account to share tweets and engage with your audience" },
     { name: "Facebook", icon: <FaFacebook />, color: "#4267B2", description: "Manage your Facebook pages and personal profile posts" },
@@ -49,7 +103,6 @@ function Accounts() {
     { name: "TikTok", icon: <FaTiktok />, color: "#000000", description: "Create and share short-form video content" }
   ];
 
-  // Connected accounts
   const [connectedAccounts, setConnectedAccounts] = useState([]);
 
   const handleConnectAccount = (platform) => {
@@ -106,19 +159,17 @@ function Accounts() {
     }
   };
 
-  // Facebook Connect Logic
+  // Facebook Connect
   const connectFacebook = () => {
     FB.login(
       function (response) {
         if (response.authResponse) {
           const userToken = response.authResponse.accessToken;
-
           FB.api("/me/accounts", { access_token: userToken }, function (pages) {
             if (pages && pages.data && pages.data.length > 0) {
-              const page = pages.data[0]; // Pick first page for now
+              const page = pages.data[0];
               sessionStorage.setItem("fb_page_id", page.id);
               sessionStorage.setItem("fb_page_token", page.access_token);
-
               setConnectedAccounts(prev => [
                 ...prev,
                 {
@@ -133,7 +184,6 @@ function Accounts() {
                   isPublic: true
                 }
               ]);
-
               showToast({ message: `Connected to Facebook Page: ${page.name}` , type: 'success' });
             } else {
               showToast({ message: "No Facebook Pages found for this account.", type: 'warning' });
@@ -147,9 +197,69 @@ function Accounts() {
     );
   };
 
+  // Instagram Business/Creator via FB SDK
+  const connectInstagram = () => {
+    FB.login(
+      function (response) {
+        if (response.authResponse) {
+          const userToken = response.authResponse.accessToken;
+          FB.api("/me/accounts", { access_token: userToken }, function (pages) {
+            if (pages && pages.data && pages.data.length > 0) {
+              let foundInstagram = false;
+              pages.data.forEach((page) => {
+                FB.api(
+                  `/${page.id}?fields=instagram_business_account{name,username,profile_picture_url,followers_count}`,
+                  { access_token: page.access_token },
+                  function (insta) {
+                    if (insta.instagram_business_account) {
+                      foundInstagram = true;
+                      const ig = insta.instagram_business_account;
+                      setConnectedAccounts(prev => [
+                        ...prev,
+                        {
+                          id: Date.now(),
+                          platform: "Instagram",
+                          username: ig.username,
+                          displayName: ig.name || ig.username,
+                          followers: ig.followers_count || "—",
+                          avatar: ig.profile_picture_url || null,
+                          status: "active",
+                          lastSync: "Just now",
+                          isPublic: true
+                        }
+                      ]);
+                      showToast({ message: `Connected to Instagram: ${ig.username}`, type: 'success' });
+                    }
+                  }
+                );
+              });
+              if (!foundInstagram) {
+                showToast({ message: "No Instagram Business Accounts found.", type: 'warning' });
+              }
+            } else {
+              showToast({ message: "No Facebook Pages linked to Instagram found.", type: 'warning' });
+            }
+          });
+        } else {
+          showToast({ message: "Instagram login cancelled or not authorized.", type: 'warning' });
+        }
+      },
+      { scope: "pages_show_list,instagram_basic,instagram_manage_insights,instagram_content_publish" }
+    );
+  };
+
+  // Instagram Personal OAuth
+  const connectInstagramPersonal = () => {
+    const clientId = "YOUR_INSTAGRAM_APP_ID";
+    const redirectUri = encodeURIComponent(window.location.origin);
+    const scope = "user_profile,user_media";
+    const authUrl = `https://api.instagram.com/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}&response_type=code`;
+    window.location.href = authUrl;
+  };
+
   return (
     <div className="accounts-container">
-      {/* Connected Accounts Section */}
+      {/* Connected Accounts */}
       <div className="accounts-section">
         <div className="section-header">
           <div className="section-icon">
@@ -163,7 +273,6 @@ function Accounts() {
             <span>{connectedAccounts.length} connected</span>
           </div>
         </div>
-
         <div className="connected-accounts-grid">
           {connectedAccounts.map((account) => {
             const platformInfo = getPlatformInfo(account.platform);
@@ -174,11 +283,8 @@ function Accounts() {
                     {platformInfo?.icon}
                     <span>{account.platform}</span>
                   </div>
-                  <div className="account-status">
-                    {getStatusIcon(account.status)}
-                  </div>
+                  <div className="account-status">{getStatusIcon(account.status)}</div>
                 </div>
-
                 <div className="account-info">
                   <div className="account-avatar">
                     {account.avatar ? (
@@ -198,33 +304,19 @@ function Accounts() {
                     </div>
                   </div>
                 </div>
-
                 <div className="account-meta">
-                  <div className="last-sync">
-                    Last sync: {account.lastSync}
-                  </div>
+                  <div className="last-sync">Last sync: {account.lastSync}</div>
                   <div className="account-visibility">
-                    {account.isPublic ? (
-                      <><MdVisibility /> Public</>
-                    ) : (
-                      <><MdVisibilityOff /> Private</>
-                    )}
+                    {account.isPublic ? (<><MdVisibility /> Public</>) : (<><MdVisibilityOff /> Private</>)}
                   </div>
                 </div>
-
                 <div className="account-actions">
-                  <button className="action-btn refresh" onClick={() => handleRefreshAccount(account.id)} title="Refresh account data">
-                    <MdRefresh />
-                  </button>
-                  <button className="action-btn visibility" onClick={() => toggleAccountVisibility(account.id)} title={account.isPublic ? "Make private" : "Make public"}>
+                  <button className="action-btn refresh" onClick={() => handleRefreshAccount(account.id)}><MdRefresh /></button>
+                  <button className="action-btn visibility" onClick={() => toggleAccountVisibility(account.id)}>
                     {account.isPublic ? <MdVisibilityOff /> : <MdVisibility />}
                   </button>
-                  <button className="action-btn settings" title="Account settings">
-                    <MdSettings />
-                  </button>
-                  <button className="action-btn delete" onClick={() => handleDisconnectAccount(account.id)} title="Disconnect account">
-                    <MdDelete />
-                  </button>
+                  <button className="action-btn settings"><MdSettings /></button>
+                  <button className="action-btn delete" onClick={() => handleDisconnectAccount(account.id)}><MdDelete /></button>
                 </div>
               </div>
             );
@@ -232,18 +324,15 @@ function Accounts() {
         </div>
       </div>
 
-      {/* Available Platforms Section */}
+      {/* Available Platforms */}
       <div className="accounts-section">
         <div className="section-header">
-          <div className="section-icon">
-            <MdAdd />
-          </div>
+          <div className="section-icon"><MdAdd /></div>
           <div className="section-title">
             <h2>Add New Account</h2>
             <p>Connect more social media platforms to expand your reach</p>
           </div>
         </div>
-
         <div className="available-platforms-grid">
           {availablePlatforms
             .filter(platform => !connectedAccounts.some(acc => acc.platform === platform.name))
@@ -266,16 +355,14 @@ function Accounts() {
 
       {/* Security Notice */}
       <div className="security-notice">
-        <div className="security-icon">
-          <BsShieldCheck />
-        </div>
+        <div className="security-icon"><BsShieldCheck /></div>
         <div className="security-content">
           <h3>Your accounts are secure</h3>
           <p>We use industry-standard OAuth 2.0 authentication to securely connect your accounts. We never store your passwords and you can revoke access at any time.</p>
         </div>
       </div>
 
-      {/* Connect Account Modal */}
+      {/* Connect Modal */}
       {showAddModal && selectedPlatform && (
         <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
           <div className="connect-modal" onClick={(e) => e.stopPropagation()}>
@@ -287,7 +374,7 @@ function Accounts() {
               <button className="modal-close" onClick={() => setShowAddModal(false)}>×</button>
             </div>
             <div className="modal-content">
-              <p>You'll be redirected to {selectedPlatform.name} to authorize this connection. We'll only access what you explicitly allow.</p>
+              <p>You'll be redirected to {selectedPlatform.name} to authorize this connection.</p>
               <div className="modal-permissions">
                 <h4>Permissions requested:</h4>
                 <ul>
@@ -306,6 +393,15 @@ function Accounts() {
                 onClick={() => {
                   if (selectedPlatform.name === "Facebook") {
                     connectFacebook();
+                  } else if (selectedPlatform.name === "Instagram") {
+                    const confirmType = window.confirm(
+                      "Do you want to connect a Business/Creator Instagram account (OK) or a Personal account (Cancel)?"
+                    );
+                    if (confirmType) {
+                      connectInstagram();
+                    } else {
+                      connectInstagramPersonal();
+                    }
                   } else {
                     showToast({ message: `Connecting to ${selectedPlatform.name}...`, type: 'info' });
                   }
