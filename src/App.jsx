@@ -118,6 +118,10 @@ function App() {
             } 
           />
           
+          {/* OAuth callback routes */}
+          <Route path="/twitter/callback" element={<Navigate to="/accounts" replace />} />
+          <Route path="/linkedin/callback" element={<Navigate to="/accounts" replace />} />
+          
           {/* Protected routes that need the layout (sidebar + header) */}
           <Route path="/" element={<ProtectedRoute><Layout onLogout={handleLogout} /></ProtectedRoute>}>
             <Route index element={<Dashboard />} />

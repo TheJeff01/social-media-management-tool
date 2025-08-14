@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>LinkedIn Callback</title>
+</head>
+<body>
+<script>
+  // Get query params from LinkedIn redirect
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get("code");
+  const state = params.get("state");
+  const error = params.get("error");
+
+  if (error) {
+    window.opener.postMessage({ platform: "linkedin", error }, "*");
+  } else {
+    window.opener.postMessage({ platform: "linkedin", code, state }, "*");
+  }
+
+  // Close the popup
+  window.close();
+</script>
+</body>
+</html>

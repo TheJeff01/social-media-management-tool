@@ -744,3 +744,26 @@
     font-size: 13px;
   }
 }
+
+/* Twitter-specific styling */
+.quick-platform[title*="Twitter"] {
+  --platform-color: #1DA1F2;
+}
+
+.quick-platform[title*="Twitter"]:hover {
+  box-shadow: 0 4px 15px rgba(29, 161, 242, 0.4);
+}
+
+.tweet-counter {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.tweet-counter.warning {
+  color: #f59e0b;
+}
+
+.tweet-counter.error {
+  color: #ef4444;
+}

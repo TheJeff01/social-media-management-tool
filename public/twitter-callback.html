@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Twitter Callback</title></head>
+<body>
+<script>
+  (function () {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    const state = params.get('state');
+    const error = params.get('error');
+
+    if (window.opener) {
+      window.opener.postMessage({ source: 'twitter-oauth', code, state, error }, window.location.origin);
+    }
+    window.close();
+  })();
+</script>
+</body>
+</html>

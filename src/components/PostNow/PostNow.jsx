@@ -36,7 +36,10 @@ function PostNow() {
       const accounts = JSON.parse(storedAccounts);
       setConnectedAccounts(accounts);
     } else {
-      // Check if there are any connected accounts (like Facebook)
+      // Check if there are any connected accounts (like Facebook, Twitter, LinkedIn)
+      const accounts = [];
+      
+      // Check Facebook
       const fbPageId = sessionStorage.getItem("fb_page_id");
       const fbPageToken = sessionStorage.getItem("fb_page_token");
       
@@ -48,7 +51,40 @@ function PostNow() {
           displayName: sessionStorage.getItem("fb_page_name") || "Facebook Page",
           status: "active"
         };
-        setConnectedAccounts([fbAccount]);
+        accounts.push(fbAccount);
+      }
+      
+      // Check Twitter
+      const twitterAccessToken = sessionStorage.getItem("twitter_access_token");
+      const twitterUserId = sessionStorage.getItem("twitter_user_id");
+      
+      if (twitterAccessToken && twitterUserId) {
+        const twitterAccount = {
+          id: 'twitter_' + twitterUserId,
+          platform: "Twitter",
+          username: sessionStorage.getItem("twitter_username") || "Twitter User",
+          displayName: sessionStorage.getItem("twitter_display_name") || "Twitter User",
+          status: "active"
+        };
+        accounts.push(twitterAccount);
+      }
+      
+      // Check LinkedIn
+      const linkedinAccessToken = sessionStorage.getItem("linkedin_access_token");
+      
+      if (linkedinAccessToken) {
+        const linkedinAccount = {
+          id: 'linkedin_user',
+          platform: "LinkedIn",
+          username: sessionStorage.getItem("linkedin_username") || "LinkedIn User",
+          displayName: sessionStorage.getItem("linkedin_display_name") || "LinkedIn User",
+          status: "active"
+        };
+        accounts.push(linkedinAccount);
+      }
+      
+      if (accounts.length > 0) {
+        setConnectedAccounts(accounts);
       }
     }
   }, []);
@@ -123,6 +159,115 @@ function PostNow() {
     setTimeout(() => setShowSuccessMessage(false), 4000);
   };
 
+  // Twitter posting function
+  const postToTwitter = async (content, imageUrl = null, imageFile = null) => {
+    const accessToken = sessionStorage.getItem("twitter_access_token");
+    const userId = sessionStorage.getItem("twitter_user_id");
+
+    if (!accessToken || !userId) {
+      throw new Error("Twitter not connected. Please connect your account first.");
+    }
+
+    try {
+      let mediaId = null;
+
+      // Handle image upload if provided
+      if (imageFile || imageUrl) {
+        mediaId = await uploadTwitterMedia(imageFile, imageUrl, accessToken);
+      }
+
+      // Create tweet payload
+      const tweetPayload = {
+        text: content,
+      };
+
+      // Add media if available
+      if (mediaId) {
+        tweetPayload.media = {
+          media_ids: [mediaId],
+        };
+      }
+
+      // Post tweet
+      const response = await fetch("https://api.twitter.com/2/tweets", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(tweetPayload),
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.data) {
+        console.log("✅ Twitter post success:", result);
+        return {
+          success: true,
+          data: result.data,
+          tweetId: result.data.id,
+          message: "Tweet posted successfully!",
+        };
+      } else {
+        throw new Error(result.detail || result.error || "Failed to post tweet");
+      }
+    } catch (error) {
+      console.error("❌ Twitter post error:", error);
+      throw error;
+    }
+  };
+
+  // Twitter media upload function
+  const uploadTwitterMedia = async (imageFile, imageUrl, accessToken) => {
+    try {
+      let mediaData;
+
+      if (imageFile) {
+        // Upload file directly
+        const formData = new FormData();
+        formData.append("media", imageFile);
+        formData.append("media_category", "tweet_image");
+
+        const uploadResponse = await fetch("https://upload.twitter.com/1.1/media/upload.json", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${accessToken}`,
+          },
+          body: formData,
+        });
+
+        mediaData = await uploadResponse.json();
+      } else if (imageUrl) {
+        // For URL-based images, fetch and convert to blob first
+        const imageResponse = await fetch(imageUrl);
+        const imageBlob = await imageResponse.blob();
+
+        const formData = new FormData();
+        formData.append("media", imageBlob);
+        formData.append("media_category", "tweet_image");
+
+        const uploadResponse = await fetch("https://upload.twitter.com/1.1/media/upload.json", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${accessToken}`,
+          },
+          body: formData,
+        });
+
+        mediaData = await uploadResponse.json();
+      }
+
+      if (mediaData && mediaData.media_id_string) {
+        return mediaData.media_id_string;
+      } else {
+        throw new Error("Failed to upload media to Twitter");
+      }
+    } catch (error) {
+      console.error("Twitter media upload error:", error);
+      throw new Error(`Media upload failed: ${error.message}`);
+    }
+  };
+
   const handlePostNow = async (e) => {
     e.preventDefault();
 
@@ -139,89 +284,87 @@ function PostNow() {
       let postsSuccessful = 0;
       let postsFailed = 0;
 
-      selectedPlatforms.forEach((platform) => {
-        if (platform === "Facebook") {
-          const pageId = sessionStorage.getItem("fb_page_id");
-          const pageToken = sessionStorage.getItem("fb_page_token");
+      for (const platform of selectedPlatforms) {
+        try {
+          if (platform === "Twitter") {
+            await postToTwitter(postContent, imageUrl, imageFile);
+            postsSuccessful++;
+            showSuccess(`🐦 Tweet posted successfully!`);
+          } else if (platform === "Facebook") {
+            const pageId = sessionStorage.getItem("fb_page_id");
+            const pageToken = sessionStorage.getItem("fb_page_token");
 
-          if (!pageId || !pageToken) {
-            showToast({ message: "No Facebook Page connected!", type: "warning" });
-            postsFailed++;
-            return;
-          }
+            if (!pageId || !pageToken) {
+              throw new Error("No Facebook Page connected!");
+            }
 
-          if (imageFile) {
-            // File upload via FormData to Facebook Graph API
-            const formData = new FormData();
-            formData.append("source", imageFile);
-            formData.append("caption", postContent);
-            formData.append("access_token", pageToken);
+            if (imageFile) {
+              // File upload via FormData to Facebook Graph API
+              const formData = new FormData();
+              formData.append("source", imageFile);
+              formData.append("caption", postContent);
+              formData.append("access_token", pageToken);
 
-            fetch(`https://graph.facebook.com/${pageId}/photos`, {
-              method: "POST",
-              body: formData,
-            })
-              .then((res) => res.json())
-              .then((data) => {
-                if (!data.error) {
-                  console.log("✅ Facebook photo file post success:", data);
-                  postsSuccessful++;
-                  showSuccess(`🎉 Photo successfully posted to Facebook!`);
-                } else {
-                  console.error("❌ Facebook file post error:", data.error);
-                  postsFailed++;
-                  showToast({ message: "Failed to post file to Facebook", type: "error" });
-                }
-              })
-              .catch((err) => {
-                console.error("❌ Network error:", err);
-                postsFailed++;
-                showToast({ message: "Network error while posting file.", type: "error" });
+              const response = await fetch(`https://graph.facebook.com/${pageId}/photos`, {
+                method: "POST",
+                body: formData,
               });
 
-          } else if (imageUrl.trim()) {
-            // Post image URL
-            FB.api(
-              `/${pageId}/photos`,
-              "POST",
-              { url: imageUrl, caption: postContent, access_token: pageToken },
-              function (response) {
-                if (response && !response.error) {
-                  console.log("✅ Facebook photo URL post success:", response);
-                  postsSuccessful++;
-                  showSuccess(`🎉 Photo successfully posted to Facebook!`);
-                } else {
-                  console.error("❌ Facebook photo URL post error:", response.error);
-                  postsFailed++;
-                  showToast({ message: "Failed to post photo URL to Facebook", type: "error" });
-                }
+              const data = await response.json();
+
+              if (!data.error) {
+                postsSuccessful++;
+                showSuccess(`🎉 Photo successfully posted to Facebook!`);
+              } else {
+                throw new Error(data.error.message);
               }
-            );
+            } else if (imageUrl.trim()) {
+              // Post image URL
+              FB.api(
+                `/${pageId}/photos`,
+                "POST",
+                { url: imageUrl, caption: postContent, access_token: pageToken },
+                function (response) {
+                  if (response && !response.error) {
+                    postsSuccessful++;
+                    showSuccess(`🎉 Photo successfully posted to Facebook!`);
+                  } else {
+                    postsFailed++;
+                    showToast({ message: "Failed to post photo URL to Facebook", type: "error" });
+                  }
+                }
+              );
+            } else {
+              // Text-only post
+              FB.api(
+                `/${pageId}/feed`,
+                "POST",
+                { message: postContent, access_token: pageToken },
+                function (response) {
+                  if (response && !response.error) {
+                    postsSuccessful++;
+                    showSuccess(`🎉 Post successfully published to Facebook!`);
+                  } else {
+                    postsFailed++;
+                    showToast({ message: "Failed to post text to Facebook", type: "error" });
+                  }
+                }
+              );
+            }
           } else {
-            // Text-only post
-            FB.api(
-              `/${pageId}/feed`,
-              "POST",
-              { message: postContent, access_token: pageToken },
-              function (response) {
-                if (response && !response.error) {
-                  console.log("✅ Facebook text post success:", response);
-                  postsSuccessful++;
-                  showSuccess(`🎉 Post successfully published to Facebook!`);
-                } else {
-                  console.error("❌ Facebook text post error:", response.error);
-                  postsFailed++;
-                  showToast({ message: "Failed to post text to Facebook", type: "error" });
-                }
-              }
-            );
+            // For other platforms (simulated success)
+            postsSuccessful++;
+            showSuccess(`🎉 Post successfully published to ${platform}!`);
           }
-        } else {
-          // For other platforms (simulated success)
-          postsSuccessful++;
-          showSuccess(`🎉 Post successfully published to ${platform}!`);
+        } catch (error) {
+          console.error(`Error posting to ${platform}:`, error);
+          postsFailed++;
+          showToast({ 
+            message: `Failed to post to ${platform}: ${error.message}`, 
+            type: 'error' 
+          });
         }
-      });
+      }
 
       // Show summary message if multiple platforms
       if (selectedPlatforms.length > 1) {
