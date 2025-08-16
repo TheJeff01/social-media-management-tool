@@ -1,4 +1,4 @@
-// PostNow.jsx - Enhanced component with image preview modal
+// Updated PostNow.jsx with Real OAuth Integration
 import React, { useState } from "react";
 import "./PostNow.css";
 import { MdSend, MdOutlineImage, MdClose } from "react-icons/md";
@@ -29,64 +29,61 @@ function PostNow() {
 
   // Load connected accounts from sessionStorage on component mount
   React.useEffect(() => {
-    const stored = sessionStorage.getItem('scheduledPosts');
-    const storedAccounts = sessionStorage.getItem('connectedAccounts');
-    
-    if (storedAccounts) {
-      const accounts = JSON.parse(storedAccounts);
-      setConnectedAccounts(accounts);
-    } else {
-      // Check if there are any connected accounts (like Facebook, Twitter, LinkedIn)
+    const loadConnectedAccounts = () => {
       const accounts = [];
       
       // Check Facebook
       const fbPageId = sessionStorage.getItem("fb_page_id");
       const fbPageToken = sessionStorage.getItem("fb_page_token");
+      const fbPageName = sessionStorage.getItem("fb_page_name");
       
       if (fbPageId && fbPageToken) {
-        const fbAccount = {
+        accounts.push({
           id: 'facebook_' + fbPageId,
           platform: "Facebook",
-          username: sessionStorage.getItem("fb_page_name") || "Facebook Page",
-          displayName: sessionStorage.getItem("fb_page_name") || "Facebook Page",
+          username: fbPageName || "Facebook Page",
+          displayName: fbPageName || "Facebook Page",
           status: "active"
-        };
-        accounts.push(fbAccount);
+        });
       }
       
       // Check Twitter
-      const twitterAccessToken = sessionStorage.getItem("twitter_access_token");
+      const twitterToken = sessionStorage.getItem("twitter_access_token");
       const twitterUserId = sessionStorage.getItem("twitter_user_id");
+      const twitterUsername = sessionStorage.getItem("twitter_username");
+      const twitterDisplayName = sessionStorage.getItem("twitter_display_name");
       
-      if (twitterAccessToken && twitterUserId) {
-        const twitterAccount = {
+      if (twitterToken && twitterUserId) {
+        accounts.push({
           id: 'twitter_' + twitterUserId,
           platform: "Twitter",
-          username: sessionStorage.getItem("twitter_username") || "Twitter User",
-          displayName: sessionStorage.getItem("twitter_display_name") || "Twitter User",
+          username: twitterUsername || "@twitter_user",
+          displayName: twitterDisplayName || "Twitter User",
           status: "active"
-        };
-        accounts.push(twitterAccount);
+        });
       }
       
       // Check LinkedIn
-      const linkedinAccessToken = sessionStorage.getItem("linkedin_access_token");
+      const linkedinToken = sessionStorage.getItem("linkedin_access_token");
+      const linkedinUserId = sessionStorage.getItem("linkedin_user_id");
+      const linkedinUsername = sessionStorage.getItem("linkedin_username");
+      const linkedinDisplayName = sessionStorage.getItem("linkedin_display_name");
       
-      if (linkedinAccessToken) {
-        const linkedinAccount = {
-          id: 'linkedin_user',
+      if (linkedinToken && linkedinUserId) {
+        accounts.push({
+          id: 'linkedin_' + linkedinUserId,
           platform: "LinkedIn",
-          username: sessionStorage.getItem("linkedin_username") || "LinkedIn User",
-          displayName: sessionStorage.getItem("linkedin_display_name") || "LinkedIn User",
+          username: linkedinUsername || "LinkedIn User",
+          displayName: linkedinDisplayName || "LinkedIn User",
           status: "active"
-        };
-        accounts.push(linkedinAccount);
+        });
       }
       
-      if (accounts.length > 0) {
-        setConnectedAccounts(accounts);
-      }
-    }
+      setConnectedAccounts(accounts);
+      console.log("📱 Connected accounts loaded:", accounts);
+    };
+
+    loadConnectedAccounts();
   }, []);
 
   // Get only connected platforms
@@ -159,7 +156,9 @@ function PostNow() {
     setTimeout(() => setShowSuccessMessage(false), 4000);
   };
 
-  // Twitter posting function
+  // =====================
+  // REAL TWITTER POSTING WITH OAUTH
+  // =====================
   const postToTwitter = async (content, imageUrl = null, imageFile = null) => {
     const accessToken = sessionStorage.getItem("twitter_access_token");
     const userId = sessionStorage.getItem("twitter_user_id");
@@ -169,11 +168,20 @@ function PostNow() {
     }
 
     try {
+      console.log("🐦 Posting to Twitter...", { content, imageUrl: !!imageUrl, imageFile: !!imageFile });
+
       let mediaId = null;
 
       // Handle image upload if provided
       if (imageFile || imageUrl) {
-        mediaId = await uploadTwitterMedia(imageFile, imageUrl, accessToken);
+        console.log("📸 Uploading media to Twitter...");
+        try {
+          mediaId = await uploadTwitterMedia(imageFile, imageUrl, accessToken);
+          console.log("✅ Twitter media uploaded:", mediaId);
+        } catch (mediaError) {
+          console.warn("⚠️ Twitter media upload failed:", mediaError);
+          // Continue without image
+        }
       }
 
       // Create tweet payload
@@ -188,7 +196,9 @@ function PostNow() {
         };
       }
 
-      // Post tweet
+      console.log("📤 Sending tweet:", tweetPayload);
+
+      // Post tweet using Twitter API v2
       const response = await fetch("https://api.twitter.com/2/tweets", {
         method: "POST",
         headers: {
@@ -199,9 +209,10 @@ function PostNow() {
       });
 
       const result = await response.json();
+      console.log("📋 Twitter API response:", result);
 
       if (response.ok && result.data) {
-        console.log("✅ Twitter post success:", result);
+        console.log("✅ Tweet posted successfully:", result.data.id);
         return {
           success: true,
           data: result.data,
@@ -209,7 +220,12 @@ function PostNow() {
           message: "Tweet posted successfully!",
         };
       } else {
-        throw new Error(result.detail || result.error || "Failed to post tweet");
+        // Handle Twitter API errors
+        const errorMessage = result.detail || 
+                           result.errors?.[0]?.message || 
+                           result.error ||
+                           "Failed to post tweet";
+        throw new Error(errorMessage);
       }
     } catch (error) {
       console.error("❌ Twitter post error:", error);
@@ -268,6 +284,76 @@ function PostNow() {
     }
   };
 
+  // =====================
+  // REAL LINKEDIN POSTING WITH OAUTH
+  // =====================
+  const postToLinkedIn = async (content, imageUrl = null, imageFile = null) => {
+    const accessToken = sessionStorage.getItem("linkedin_access_token");
+    const userId = sessionStorage.getItem("linkedin_user_id");
+
+    if (!accessToken || !userId) {
+      throw new Error("LinkedIn not connected. Please connect your account first.");
+    }
+
+    try {
+      console.log("💼 Posting to LinkedIn...", { content, imageUrl: !!imageUrl, imageFile: !!imageFile });
+
+      // For now, post text-only to LinkedIn
+      // LinkedIn image posting requires more complex media upload process
+      const postPayload = {
+        author: `urn:li:person:${userId}`,
+        lifecycleState: "PUBLISHED",
+        specificContent: {
+          "com.linkedin.ugc.ShareContent": {
+            shareCommentary: {
+              text: content
+            },
+            shareMediaCategory: "NONE"
+          }
+        },
+        visibility: {
+          "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"
+        }
+      };
+
+      console.log("📤 Sending LinkedIn post:", postPayload);
+
+      const response = await fetch("https://api.linkedin.com/v2/ugcPosts", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+          "X-Restli-Protocol-Version": "2.0.0",
+        },
+        body: JSON.stringify(postPayload),
+      });
+
+      const result = await response.json();
+      console.log("📋 LinkedIn API response:", result);
+
+      if (response.ok && result.id) {
+        console.log("✅ LinkedIn post successful:", result.id);
+        return {
+          success: true,
+          data: result,
+          postId: result.id,
+          message: "LinkedIn post published successfully!",
+        };
+      } else {
+        const errorMessage = result.message || 
+                           result.error_description || 
+                           "Failed to post to LinkedIn";
+        throw new Error(errorMessage);
+      }
+    } catch (error) {
+      console.error("❌ LinkedIn post error:", error);
+      throw error;
+    }
+  };
+
+  // =====================
+  // MAIN POSTING HANDLER
+  // =====================
   const handlePostNow = async (e) => {
     e.preventDefault();
 
@@ -278,9 +364,6 @@ function PostNow() {
     setIsPosting(true);
 
     try {
-      // Simulate posting delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
       let postsSuccessful = 0;
       let postsFailed = 0;
 
@@ -290,7 +373,13 @@ function PostNow() {
             await postToTwitter(postContent, imageUrl, imageFile);
             postsSuccessful++;
             showSuccess(`🐦 Tweet posted successfully!`);
-          } else if (platform === "Facebook") {
+          } 
+          else if (platform === "LinkedIn") {
+            await postToLinkedIn(postContent, imageUrl, imageFile);
+            postsSuccessful++;
+            showSuccess(`💼 LinkedIn post published successfully!`);
+          }
+          else if (platform === "Facebook") {
             const pageId = sessionStorage.getItem("fb_page_id");
             const pageToken = sessionStorage.getItem("fb_page_token");
 
@@ -314,47 +403,51 @@ function PostNow() {
 
               if (!data.error) {
                 postsSuccessful++;
-                showSuccess(`🎉 Photo successfully posted to Facebook!`);
+                showSuccess(`📘 Photo successfully posted to Facebook!`);
               } else {
                 throw new Error(data.error.message);
               }
             } else if (imageUrl.trim()) {
-              // Post image URL
-              FB.api(
-                `/${pageId}/photos`,
-                "POST",
-                { url: imageUrl, caption: postContent, access_token: pageToken },
-                function (response) {
-                  if (response && !response.error) {
-                    postsSuccessful++;
-                    showSuccess(`🎉 Photo successfully posted to Facebook!`);
-                  } else {
-                    postsFailed++;
-                    showToast({ message: "Failed to post photo URL to Facebook", type: "error" });
+              // Post image URL using FB SDK
+              if (typeof FB !== 'undefined') {
+                FB.api(
+                  `/${pageId}/photos`,
+                  "POST",
+                  { url: imageUrl, caption: postContent, access_token: pageToken },
+                  function (response) {
+                    if (response && !response.error) {
+                      postsSuccessful++;
+                      showSuccess(`📘 Photo successfully posted to Facebook!`);
+                    } else {
+                      postsFailed++;
+                      showToast({ message: "Failed to post photo URL to Facebook", type: "error" });
+                    }
                   }
-                }
-              );
+                );
+              }
             } else {
-              // Text-only post
-              FB.api(
-                `/${pageId}/feed`,
-                "POST",
-                { message: postContent, access_token: pageToken },
-                function (response) {
-                  if (response && !response.error) {
-                    postsSuccessful++;
-                    showSuccess(`🎉 Post successfully published to Facebook!`);
-                  } else {
-                    postsFailed++;
-                    showToast({ message: "Failed to post text to Facebook", type: "error" });
+              // Text-only post using FB SDK
+              if (typeof FB !== 'undefined') {
+                FB.api(
+                  `/${pageId}/feed`,
+                  "POST",
+                  { message: postContent, access_token: pageToken },
+                  function (response) {
+                    if (response && !response.error) {
+                      postsSuccessful++;
+                      showSuccess(`📘 Post successfully published to Facebook!`);
+                    } else {
+                      postsFailed++;
+                      showToast({ message: "Failed to post text to Facebook", type: "error" });
+                    }
                   }
-                }
-              );
+                );
+              }
             }
-          } else {
-            // For other platforms (simulated success)
-            postsSuccessful++;
-            showSuccess(`🎉 Post successfully published to ${platform}!`);
+          } 
+          else {
+            // For other platforms (Instagram, etc.) - show coming soon
+            showToast({ message: `${platform} posting coming soon!`, type: "info" });
           }
         } catch (error) {
           console.error(`Error posting to ${platform}:`, error);
@@ -369,16 +462,20 @@ function PostNow() {
       // Show summary message if multiple platforms
       if (selectedPlatforms.length > 1) {
         setTimeout(() => {
-          showSuccess(`🚀 Successfully posted to ${selectedPlatforms.length} platforms!`);
+          if (postsSuccessful > 0) {
+            showSuccess(`🚀 Successfully posted to ${postsSuccessful}/${selectedPlatforms.length} platforms!`);
+          }
         }, 500);
       }
 
       // Reset form after successful posting
-      setPostContent("");
-      setImageUrl("");
-      setImageFile(null);
-      setImagePreview(null);
-      setSelectedPlatforms([]);
+      if (postsSuccessful > 0) {
+        setPostContent("");
+        setImageUrl("");
+        setImageFile(null);
+        setImagePreview(null);
+        setSelectedPlatforms([]);
+      }
 
     } catch (error) {
       console.error('Error posting:', error);
@@ -511,6 +608,11 @@ function PostNow() {
             <div className="quick-post-footer">
               <div className="character-count-small">
                 {postContent.length}/280
+                {selectedPlatforms.includes("Twitter") && postContent.length > 280 && (
+                  <span style={{ color: '#ef4444', marginLeft: '5px' }}>
+                    (Twitter: {280 - postContent.length})
+                  </span>
+                )}
               </div>
               <button
                 type="submit"

@@ -1,19 +1,195 @@
+<!-- public/twitter-callback.html -->
 <!DOCTYPE html>
 <html>
-<head><meta charset="utf-8"><title>Twitter Callback</title></head>
+<head>
+    <meta charset="utf-8">
+    <title>Twitter OAuth Callback</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            text-align: center;
+            padding: 50px 20px;
+            background: #15202b;
+            color: #ffffff;
+            margin: 0;
+        }
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+        }
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-top: 4px solid #1DA1F2;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .logo {
+            font-size: 3rem;
+            margin-bottom: 20px;
+        }
+        .status {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+        }
+        .success { border-left: 4px solid #1DA1F2; }
+        .error { border-left: 4px solid #e74c3c; }
+        .debug {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            text-align: left;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
 <body>
-<script>
-  (function () {
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get('code');
-    const state = params.get('state');
-    const error = params.get('error');
+    <div class="container">
+        <div class="logo">🐦</div>
+        <h2 id="title">Connecting to Twitter...</h2>
+        <div class="spinner" id="spinner"></div>
+        <div id="status" class="status">
+            <p id="message">Please wait while we complete the authentication process.</p>
+        </div>
+        <div id="debug" class="debug" style="display: none;"></div>
+    </div>
+    
+    <script>
+    (function() {
+        const debug = document.getElementById('debug');
+        const title = document.getElementById('title');
+        const message = document.getElementById('message');
+        const status = document.getElementById('status');
+        const spinner = document.getElementById('spinner');
+        
+        function log(msg) {
+            console.log(msg);
+            debug.innerHTML += new Date().toLocaleTimeString() + ': ' + msg + '<br>';
+            debug.style.display = 'block';
+            debug.scrollTop = debug.scrollHeight;
+        }
+        
+        function updateUI(titleText, messageText, isError = false, hideSpinner = false) {
+            title.textContent = titleText;
+            message.textContent = messageText;
+            if (isError) {
+                status.className = 'status error';
+            } else {
+                status.className = 'status success';
+            }
+            if (hideSpinner) {
+                spinner.style.display = 'none';
+            }
+        }
+        
+        try {
+            log('🔍 Twitter callback page loaded');
+            log('📍 URL: ' + window.location.href);
+            
+            const urlParams = new URLSearchParams(window.location.search);
+            const code = urlParams.get('code');
+            const state = urlParams.get('state');
+            const error = urlParams.get('error');
+            const errorDescription = urlParams.get('error_description');
 
-    if (window.opener) {
-      window.opener.postMessage({ source: 'twitter-oauth', code, state, error }, window.location.origin);
-    }
-    window.close();
-  })();
-</script>
+            log('📊 Parameters found:');
+            log('  - code: ' + (code ? 'YES (length: ' + code.length + ')' : 'NO'));
+            log('  - state: ' + (state ? 'YES' : 'NO'));
+            log('  - error: ' + (error || 'NONE'));
+            
+            if (error) {
+                log('❌ OAuth error detected: ' + error);
+                updateUI('Authentication Failed', 'Error: ' + (errorDescription || error), true, true);
+            } else if (code) {
+                log('✅ Authorization code received');
+                updateUI('Authentication Successful', 'Completing connection...', false, false);
+            } else {
+                log('❌ No code or error found in URL');
+                updateUI('Authentication Failed', 'No authorization code received', true, true);
+            }
+            
+            log('🪟 Checking parent window...');
+            if (window.opener && !window.opener.closed) {
+                log('✅ Parent window found, sending message...');
+                
+                const messageData = {
+                    source: 'twitter-oauth',
+                    timestamp: new Date().toISOString(),
+                    url: window.location.href
+                };
+
+                if (error) {
+                    messageData.error = error;
+                    messageData.error_description = errorDescription;
+                } else if (code) {
+                    messageData.code = code;
+                    messageData.state = state;
+                } else {
+                    messageData.error = 'no_code';
+                    messageData.error_description = 'No authorization code found in callback URL';
+                }
+                
+                log('📤 Sending message: ' + JSON.stringify(messageData, null, 2));
+                window.opener.postMessage(messageData, window.location.origin);
+                
+                if (!error && code) {
+                    updateUI('Connection Successful!', 'You can close this window now.', false, true);
+                }
+            } else {
+                log('❌ No parent window found');
+                updateUI('Connection Error', 'Lost connection to main window', true, true);
+            }
+            
+            // Auto-close after delay
+            const closeDelay = error ? 5000 : 3000;
+            log('⏰ Auto-closing in ' + (closeDelay/1000) + ' seconds...');
+            
+            setTimeout(() => {
+                log('🔚 Closing window...');
+                try {
+                    window.close();
+                } catch (e) {
+                    log('⚠️ Could not close window automatically');
+                    updateUI('Please Close', 'You can safely close this window now.', false, true);
+                }
+            }, closeDelay);
+            
+        } catch (err) {
+            log('💥 JavaScript error: ' + err.message);
+            console.error('Twitter callback error:', err);
+            
+            updateUI('JavaScript Error', 'Error: ' + err.message, true, true);
+            
+            if (window.opener && !window.opener.closed) {
+                try {
+                    window.opener.postMessage({
+                        source: 'twitter-oauth',
+                        error: 'callback_error',
+                        error_description: err.message,
+                        timestamp: new Date().toISOString()
+                    }, window.location.origin);
+                } catch (e) {
+                    log('⚠️ Could not send error message to parent');
+                }
+            }
+            
+            setTimeout(() => {
+                try { window.close(); } catch (e) {}
+            }, 7000);
+        }
+    })();
+    </script>
 </body>
 </html>
