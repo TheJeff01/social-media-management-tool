@@ -32,213 +32,6 @@ function Accounts() {
   const { showToast } = useToast();
   const { confirm } = useConfirm();
 
-  // Load FB SDK (keep existing Facebook functionality)
-  useEffect(() => {
-    window.fbAsyncInit = function () {
-      FB.init({
-        appId: "1269691314882966",
-        cookie: true,
-        xfbml: true,
-        version: "v20.0",
-      });
-    };
-    (function (d, s, id) {
-      var js,
-        fjs = d.getElementsByTagName(s)[0];
-      if (d.getElementById(id)) return;
-      js = d.createElement(s);
-      js.id = id;
-      js.src = "https://connect.facebook.net/en_US/sdk.js";
-      fjs.parentNode.insertBefore(js, fjs);
-    })(document, "script", "facebook-jssdk");
-  }, []);
-  // useEffect(() => {
-  //   const handleOAuthCallback = async () => {
-  //     const urlParams = new URLSearchParams(window.location.search);
-
-  //     // Check for Twitter OAuth callback
-  //     const twitterSession = urlParams.get("twitter_session");
-  //     if (twitterSession && urlParams.get("success") === "true") {
-  //       try {
-  //         console.log("🐦 Processing Twitter OAuth callback...");
-
-  //         const response = await fetch(
-  //           `${BACKEND_URL}/auth/twitter/user/${twitterSession}`
-  //         );
-  //         const data = await response.json();
-
-  //         if (response.ok) {
-  //           // Store Twitter data in sessionStorage
-  //           sessionStorage.setItem("twitter_access_token", data.accessToken);
-  //           sessionStorage.setItem("twitter_user_id", data.user.id);
-  //           sessionStorage.setItem(
-  //             "twitter_username",
-  //             `@${data.user.username}`
-  //           );
-  //           sessionStorage.setItem("twitter_display_name", data.user.name);
-
-  //           if (data.user.public_metrics?.followers_count) {
-  //             sessionStorage.setItem(
-  //               "twitter_followers_count",
-  //               data.user.public_metrics.followers_count.toLocaleString()
-  //             );
-  //           }
-
-  //           if (data.user.profile_image_url) {
-  //             sessionStorage.setItem(
-  //               "twitter_profile_image",
-  //               data.user.profile_image_url
-  //             );
-  //           }
-
-  //           // Add to connected accounts
-  //           const twitterAccount = {
-  //             id: "twitter_" + data.user.id,
-  //             platform: "Twitter",
-  //             username: `@${data.user.username}`,
-  //             displayName: data.user.name,
-  //             followers:
-  //               data.user.public_metrics?.followers_count?.toLocaleString() ||
-  //               "—",
-  //             avatar: data.user.profile_image_url || null,
-  //             status: "active",
-  //             lastSync: "Just now",
-  //             isPublic: true,
-  //           };
-
-  //           setConnectedAccounts((prev) => {
-  //             const filtered = prev.filter((acc) => acc.platform !== "Twitter");
-  //             return [...filtered, twitterAccount];
-  //           });
-
-  //           showToast({
-  //             message: "✅ Twitter connected successfully!",
-  //             type: "success",
-  //           });
-  //         } else {
-  //           throw new Error(data.error || "Failed to get Twitter user data");
-  //         }
-  //       } catch (error) {
-  //         console.error("❌ Twitter callback processing error:", error);
-  //         showToast({
-  //           message: "Failed to process Twitter authentication",
-  //           type: "error",
-  //         });
-  //       }
-
-  //       // Clean up URL
-  //       window.history.replaceState(
-  //         {},
-  //         document.title,
-  //         window.location.pathname
-  //       );
-  //     }
-
-  //     // Check for LinkedIn OAuth callback
-  //     const linkedinSession = urlParams.get("linkedin_session");
-  //     if (linkedinSession && urlParams.get("success") === "true") {
-  //       try {
-  //         console.log("💼 Processing LinkedIn OAuth callback...");
-
-  //         const response = await fetch(
-  //           `${BACKEND_URL}/auth/linkedin/user/${linkedinSession}`
-  //         );
-  //         const data = await response.json();
-
-  //         if (response.ok) {
-  //           const firstName = data.user.firstName?.localized?.en_US || "";
-  //           const lastName = data.user.lastName?.localized?.en_US || "";
-  //           const fullName =
-  //             `${firstName} ${lastName}`.trim() || "LinkedIn User";
-
-  //           // Get profile image if available
-  //           let profileImage = null;
-  //           if (data.user.profilePicture?.displayImage) {
-  //             const imageElements =
-  //               data.user.profilePicture.displayImage.elements;
-  //             if (imageElements && imageElements.length > 0) {
-  //               profileImage = imageElements[0].identifiers?.[0]?.identifier;
-  //             }
-  //           }
-
-  //           // Store LinkedIn data in sessionStorage
-  //           sessionStorage.setItem("linkedin_access_token", data.accessToken);
-  //           sessionStorage.setItem("linkedin_user_id", data.user.id);
-  //           sessionStorage.setItem("linkedin_username", fullName);
-  //           sessionStorage.setItem("linkedin_display_name", fullName);
-
-  //           if (profileImage) {
-  //             sessionStorage.setItem("linkedin_profile_image", profileImage);
-  //           }
-
-  //           // Add to connected accounts
-  //           const linkedinAccount = {
-  //             id: "linkedin_" + data.user.id,
-  //             platform: "LinkedIn",
-  //             username: fullName,
-  //             displayName: fullName,
-  //             followers: "500+",
-  //             avatar: profileImage,
-  //             status: "active",
-  //             lastSync: "Just now",
-  //             isPublic: true,
-  //           };
-
-  //           setConnectedAccounts((prev) => {
-  //             const filtered = prev.filter(
-  //               (acc) => acc.platform !== "LinkedIn"
-  //             );
-  //             return [...filtered, linkedinAccount];
-  //           });
-
-  //           showToast({
-  //             message: "✅ LinkedIn connected successfully!",
-  //             type: "success",
-  //           });
-  //         } else {
-  //           throw new Error(data.error || "Failed to get LinkedIn user data");
-  //         }
-  //       } catch (error) {
-  //         console.error("❌ LinkedIn callback processing error:", error);
-  //         showToast({
-  //           message: "Failed to process LinkedIn authentication",
-  //           type: "error",
-  //         });
-  //       }
-
-  //       // Clean up URL
-  //       window.history.replaceState(
-  //         {},
-  //         document.title,
-  //         window.location.pathname
-  //       );
-  //     }
-
-  //     // Check for OAuth errors
-  //     const error = urlParams.get("error");
-  //     if (error) {
-  //       console.error("❌ OAuth error:", error);
-  //       let errorMessage = "Authentication failed";
-
-  //       if (error.includes("twitter")) {
-  //         errorMessage = "Twitter authentication failed";
-  //       } else if (error.includes("linkedin")) {
-  //         errorMessage = "LinkedIn authentication failed";
-  //       }
-
-  //       showToast({ message: errorMessage, type: "error" });
-
-  //       // Clean up URL
-  //       window.history.replaceState(
-  //         {},
-  //         document.title,
-  //         window.location.pathname
-  //       );
-  //     }
-  //   };
-
-  //   handleOAuthCallback();
-  // }, []);
   // Load existing accounts from sessionStorage on mount
   useEffect(() => {
     const loadExistingAccounts = () => {
@@ -255,8 +48,8 @@ function Accounts() {
           platform: "Facebook",
           username: fbPageName || "Facebook Page",
           displayName: fbPageName || "Facebook Page",
-          followers: "—",
-          avatar: null,
+          followers: sessionStorage.getItem("fb_page_followers") || "—",
+          avatar: sessionStorage.getItem("fb_page_avatar") || null,
           status: "active",
           lastSync: "Connected",
           isPublic: true,
@@ -357,40 +150,6 @@ function Accounts() {
   // REAL TWITTER OAuth 2.0 PKCE Implementation
   // =====================
 
-  // PKCE helper functions
-  function generateRandomString(length) {
-    const charset =
-      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~";
-    let result = "";
-    for (let i = 0; i < length; i++) {
-      result += charset.charAt(Math.floor(Math.random() * charset.length));
-    }
-    return result;
-  }
-
-  function base64urlencode(arrayBuffer) {
-    let binary = "";
-    const bytes = new Uint8Array(arrayBuffer);
-    for (let i = 0; i < bytes.byteLength; i++) {
-      binary += String.fromCharCode(bytes[i]);
-    }
-    return btoa(binary)
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_")
-      .replace(/=+$/, "");
-  }
-
-  async function sha256(plain) {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(plain);
-    return await crypto.subtle.digest("SHA-256", data);
-  }
-
-  async function generateCodeChallenge(verifier) {
-    const hashed = await sha256(verifier);
-    return base64urlencode(hashed);
-  }
-
   const connectTwitter = () => {
     try {
       console.log("🐦 Opening Twitter OAuth popup...");
@@ -411,7 +170,6 @@ function Accounts() {
 
       // Handle popup response
       const handleMessage = async (event) => {
-        // Only accept messages from our backend domain
         if (event.origin !== "http://localhost:3001") return;
 
         if (event.data && event.data.platform === "twitter") {
@@ -419,14 +177,13 @@ function Accounts() {
 
           if (event.data.success && event.data.sessionId) {
             try {
-              // Fetch user data from backend using session ID
               const response = await fetch(
                 `${BACKEND_URL}/auth/twitter/user/${event.data.sessionId}`
               );
               const userData = await response.json();
 
               if (response.ok) {
-                // Store Twitter data in sessionStorage (same as before)
+                // Store Twitter data in sessionStorage
                 sessionStorage.setItem(
                   "twitter_access_token",
                   userData.accessToken
@@ -489,313 +246,6 @@ function Accounts() {
             } catch (error) {
               console.error("❌ Error fetching Twitter user data:", error);
               showToast({
-                message: "Failed to get Twitter user data",
-                type: "error",
-              });
-            }
-          } else if (event.data.error) {
-            showToast({
-              message: `Twitter authentication failed: ${event.data.error}`,
-              type: "error",
-            });
-          }
-
-          // Clean up
-          window.removeEventListener("message", handleMessage);
-          if (popup && !popup.closed) popup.close();
-          setShowAddModal(false);
-        }
-      };
-
-      window.addEventListener("message", handleMessage);
-
-      // Monitor popup for manual close
-      const checkClosed = setInterval(() => {
-        if (popup.closed) {
-          clearInterval(checkClosed);
-          window.removeEventListener("message", handleMessage);
-          showToast({
-            message: "Twitter authentication cancelled",
-            type: "warning",
-          });
-          setShowAddModal(false);
-        }
-      }, 1000);
-    } catch (error) {
-      console.error("❌ Twitter connection error:", error);
-      showToast({
-        message: `Twitter connection failed: ${error.message}`,
-        type: "error",
-      });
-    }
-  };
-
-  // Exchange Twitter authorization code for access token
-  const exchangeTwitterCode = async (code) => {
-    try {
-      const clientId = "WE55eTM4eEFLa2VtLWRNdFhQZlE6MTpjaQ";
-      const clientSecret = "RKtO9uhmr6i4zr6WjQ8jP5rHHdIaVq42B9AMq8T2jOprdMY54f";
-      const redirectUri = "http://localhost:5173/twitter-callback.html";
-      const codeVerifier = sessionStorage.getItem("twitter_code_verifier");
-
-      const body = new URLSearchParams({
-        grant_type: "authorization_code",
-        code: code,
-        redirect_uri: redirectUri,
-        code_verifier: codeVerifier,
-        client_id: clientId,
-      });
-
-      console.log("🔄 Exchanging Twitter code for token...");
-
-      const response = await fetch("https://api.twitter.com/2/oauth2/token", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          Authorization: "Basic " + btoa(`${clientId}:${clientSecret}`),
-        },
-        body: body,
-      });
-
-      const data = await response.json();
-      console.log("📋 Twitter token response:", data);
-
-      if (data.access_token) {
-        // Store tokens
-        sessionStorage.setItem("twitter_access_token", data.access_token);
-        if (data.refresh_token) {
-          sessionStorage.setItem("twitter_refresh_token", data.refresh_token);
-        }
-
-        // Fetch user profile
-        await fetchTwitterProfile(data.access_token);
-
-        showToast({
-          message: "✅ Twitter connected successfully!",
-          type: "success",
-        });
-      } else {
-        console.error("❌ Token exchange failed:", data);
-        showToast({
-          message: "Failed to get Twitter access token",
-          type: "error",
-        });
-      }
-    } catch (error) {
-      console.error("❌ Twitter token exchange error:", error);
-      showToast({ message: "Error connecting to Twitter", type: "error" });
-    }
-  };
-
-  // Fetch Twitter user profile
-  const fetchTwitterProfile = async (accessToken) => {
-    try {
-      const response = await fetch(
-        "https://api.twitter.com/2/users/me?user.fields=profile_image_url,public_metrics,name,username",
-        {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        }
-      );
-
-      const data = await response.json();
-      console.log("👤 Twitter profile data:", data);
-
-      if (data.data) {
-        const user = data.data;
-        const followers = user.public_metrics?.followers_count || 0;
-
-        // Store user data
-        sessionStorage.setItem("twitter_user_id", user.id);
-        sessionStorage.setItem("twitter_username", `@${user.username}`);
-        sessionStorage.setItem("twitter_display_name", user.name);
-        sessionStorage.setItem(
-          "twitter_followers_count",
-          followers.toLocaleString()
-        );
-        if (user.profile_image_url) {
-          sessionStorage.setItem(
-            "twitter_profile_image",
-            user.profile_image_url
-          );
-        }
-
-        // Add to connected accounts
-        const twitterAccount = {
-          id: "twitter_" + user.id,
-          platform: "Twitter",
-          username: `@${user.username}`,
-          displayName: user.name,
-          followers: followers.toLocaleString(),
-          avatar: user.profile_image_url || null,
-          status: "active",
-          lastSync: "Just now",
-          isPublic: true,
-        };
-
-        setConnectedAccounts((prev) => {
-          // Remove existing Twitter account if any
-          const filtered = prev.filter((acc) => acc.platform !== "Twitter");
-          return [...filtered, twitterAccount];
-        });
-      } else {
-        // Fallback if profile fetch fails
-        const fallbackAccount = {
-          id: "twitter_" + Date.now(),
-          platform: "Twitter",
-          username: "@twitter_user",
-          displayName: "Twitter User",
-          followers: "—",
-          avatar: null,
-          status: "active",
-          lastSync: "Just now",
-          isPublic: true,
-        };
-
-        sessionStorage.setItem("twitter_user_id", fallbackAccount.id);
-        sessionStorage.setItem("twitter_username", fallbackAccount.username);
-        sessionStorage.setItem(
-          "twitter_display_name",
-          fallbackAccount.displayName
-        );
-
-        setConnectedAccounts((prev) => {
-          const filtered = prev.filter((acc) => acc.platform !== "Twitter");
-          return [...filtered, fallbackAccount];
-        });
-      }
-    } catch (error) {
-      console.error("❌ Twitter profile fetch error:", error);
-      // Still add account even if profile fetch fails
-      const fallbackAccount = {
-        id: "twitter_" + Date.now(),
-        platform: "Twitter",
-        username: "@twitter_user",
-        displayName: "Twitter User",
-        followers: "—",
-        avatar: null,
-        status: "active",
-        lastSync: "Just now",
-        isPublic: true,
-      };
-
-      sessionStorage.setItem("twitter_user_id", fallbackAccount.id);
-      sessionStorage.setItem("twitter_username", fallbackAccount.username);
-      sessionStorage.setItem(
-        "twitter_display_name",
-        fallbackAccount.displayName
-      );
-
-      setConnectedAccounts((prev) => {
-        const filtered = prev.filter((acc) => acc.platform !== "Twitter");
-        return [...filtered, fallbackAccount];
-      });
-    }
-  };
-
-  // =====================
-  // REAL LINKEDIN OAuth 2.0 Implementation
-  // =====================
-
-  const connectLinkedIn = () => {
-    try {
-      console.log("💼 Opening LinkedIn OAuth popup...");
-
-      const popup = window.open(
-        `${BACKEND_URL}/auth/linkedin`,
-        "linkedinLogin",
-        "width=600,height=700,scrollbars=yes,resizable=yes"
-      );
-
-      if (!popup) {
-        showToast({
-          message: "Popup blocked! Please allow popups and try again.",
-          type: "error",
-        });
-        return;
-      }
-
-      // Handle popup response
-      const handleMessage = async (event) => {
-        // Only accept messages from our backend domain
-        if (event.origin !== "http://localhost:3001") return;
-
-        if (event.data && event.data.platform === "linkedin") {
-          console.log("📨 LinkedIn OAuth response:", event.data);
-
-          if (event.data.success && event.data.sessionId) {
-            try {
-              // Fetch user data from backend using session ID
-              const response = await fetch(
-                `${BACKEND_URL}/auth/linkedin/user/${event.data.sessionId}`
-              );
-              const userData = await response.json();
-
-              if (response.ok) {
-                const firstName =
-                  userData.user.firstName?.localized?.en_US || "";
-                const lastName = userData.user.lastName?.localized?.en_US || "";
-                const fullName =
-                  `${firstName} ${lastName}`.trim() || "LinkedIn User";
-
-                // Get profile image if available
-                let profileImage = null;
-                if (userData.user.profilePicture?.displayImage) {
-                  const imageElements =
-                    userData.user.profilePicture.displayImage.elements;
-                  if (imageElements && imageElements.length > 0) {
-                    profileImage =
-                      imageElements[0].identifiers?.[0]?.identifier;
-                  }
-                }
-
-                // Store LinkedIn data in sessionStorage
-                sessionStorage.setItem(
-                  "linkedin_access_token",
-                  userData.accessToken
-                );
-                sessionStorage.setItem("linkedin_user_id", userData.user.id);
-                sessionStorage.setItem("linkedin_username", fullName);
-                sessionStorage.setItem("linkedin_display_name", fullName);
-
-                if (profileImage) {
-                  sessionStorage.setItem(
-                    "linkedin_profile_image",
-                    profileImage
-                  );
-                }
-
-                // Add to connected accounts
-                const linkedinAccount = {
-                  id: "linkedin_" + userData.user.id,
-                  platform: "LinkedIn",
-                  username: fullName,
-                  displayName: fullName,
-                  followers: "500+",
-                  avatar: profileImage,
-                  status: "active",
-                  lastSync: "Just now",
-                  isPublic: true,
-                };
-
-                setConnectedAccounts((prev) => {
-                  const filtered = prev.filter(
-                    (acc) => acc.platform !== "LinkedIn"
-                  );
-                  return [...filtered, linkedinAccount];
-                });
-
-                showToast({
-                  message: "✅ LinkedIn connected successfully!",
-                  type: "success",
-                });
-              } else {
-                throw new Error(
-                  userData.error || "Failed to get LinkedIn user data"
-                );
-              }
-            } catch (error) {
-              console.error("❌ Error fetching LinkedIn user data:", error);
-              showToast({
                 message: "Failed to get LinkedIn user data",
                 type: "error",
               });
@@ -837,226 +287,169 @@ function Accounts() {
     }
   };
 
-  // Exchange LinkedIn authorization code for access token
-  const exchangeLinkedInCode = async (code) => {
+  // =====================
+  // REAL FACEBOOK OAuth 2.0 Implementation
+  // =====================
+
+  const connectFacebook = () => {
     try {
-      const clientId = "77u0w42ew1nipf";
-      const clientSecret = "WPL_AP1.qAXQ97NMN78puouG.eF5mcQ==";
-      const redirectUri = "http://localhost:5173/linkedin-callback.html";
+      console.log("📘 Opening Facebook OAuth popup...");
 
-      const body = new URLSearchParams({
-        grant_type: "authorization_code",
-        code: code,
-        redirect_uri: redirectUri,
-        client_id: clientId,
-        client_secret: clientSecret,
-      });
-
-      console.log("🔄 Exchanging LinkedIn code for token...");
-
-      const response = await fetch(
-        "https://www.linkedin.com/oauth/v2/accessToken",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-          },
-          body: body,
-        }
+      const popup = window.open(
+        `${BACKEND_URL}/auth/facebook`,
+        "facebookLogin",
+        "width=600,height=700,scrollbars=yes,resizable=yes"
       );
 
-      const data = await response.json();
-      console.log("📋 LinkedIn token response:", data);
-
-      if (data.access_token) {
-        // Store token
-        sessionStorage.setItem("linkedin_access_token", data.access_token);
-
-        // Fetch user profile
-        await fetchLinkedInProfile(data.access_token);
-
+      if (!popup) {
         showToast({
-          message: "✅ LinkedIn connected successfully!",
-          type: "success",
-        });
-      } else {
-        console.error("❌ LinkedIn token exchange failed:", data);
-        showToast({
-          message: "Failed to get LinkedIn access token",
+          message: "Popup blocked! Please allow popups and try again.",
           type: "error",
         });
+        return;
       }
-    } catch (error) {
-      console.error("❌ LinkedIn token exchange error:", error);
-      showToast({ message: "Error connecting to LinkedIn", type: "error" });
-    }
-  };
 
-  // Fetch LinkedIn user profile
-  const fetchLinkedInProfile = async (accessToken) => {
-    try {
-      // Fetch basic profile
-      const profileResponse = await fetch(
-        "https://api.linkedin.com/v2/people/~?projection=(id,firstName,lastName,profilePicture(displayImage~:playableStreams))",
-        {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        }
-      );
+      // Handle popup response
+      const handleMessage = async (event) => {
+        if (event.origin !== "http://localhost:3001") return;
 
-      const profileData = await profileResponse.json();
-      console.log("👤 LinkedIn profile data:", profileData);
+        if (event.data && event.data.platform === "facebook") {
+          console.log("📨 Facebook OAuth response:", event.data);
 
-      if (profileData.id) {
-        const firstName = profileData.firstName?.localized?.en_US || "";
-        const lastName = profileData.lastName?.localized?.en_US || "";
-        const fullName = `${firstName} ${lastName}`.trim() || "LinkedIn User";
+          if (event.data.success && event.data.sessionId) {
+            try {
+              const response = await fetch(
+                `${BACKEND_URL}/auth/facebook/user/${event.data.sessionId}`
+              );
+              const userData = await response.json();
 
-        // Get profile image if available
-        let profileImage = null;
-        if (profileData.profilePicture?.displayImage) {
-          const imageElements =
-            profileData.profilePicture.displayImage.elements;
-          if (imageElements && imageElements.length > 0) {
-            profileImage = imageElements[0].identifiers?.[0]?.identifier;
-          }
-        }
+              if (response.ok) {
+                const user = userData.user;
+                const pages = userData.pages || [];
 
-        // Store user data
-        sessionStorage.setItem("linkedin_user_id", profileData.id);
-        sessionStorage.setItem("linkedin_username", fullName);
-        sessionStorage.setItem("linkedin_display_name", fullName);
-        if (profileImage) {
-          sessionStorage.setItem("linkedin_profile_image", profileImage);
-        }
-
-        // Add to connected accounts
-        const linkedinAccount = {
-          id: "linkedin_" + profileData.id,
-          platform: "LinkedIn",
-          username: fullName,
-          displayName: fullName,
-          followers: "500+", // LinkedIn doesn't provide connection count in basic API
-          avatar: profileImage,
-          status: "active",
-          lastSync: "Just now",
-          isPublic: true,
-        };
-
-        setConnectedAccounts((prev) => {
-          // Remove existing LinkedIn account if any
-          const filtered = prev.filter((acc) => acc.platform !== "LinkedIn");
-          return [...filtered, linkedinAccount];
-        });
-      } else {
-        // Fallback if profile fetch fails
-        const fallbackAccount = {
-          id: "linkedin_" + Date.now(),
-          platform: "LinkedIn",
-          username: "LinkedIn User",
-          displayName: "LinkedIn User",
-          followers: "500+",
-          avatar: null,
-          status: "active",
-          lastSync: "Just now",
-          isPublic: true,
-        };
-
-        sessionStorage.setItem("linkedin_user_id", fallbackAccount.id);
-        sessionStorage.setItem("linkedin_username", fallbackAccount.username);
-        sessionStorage.setItem(
-          "linkedin_display_name",
-          fallbackAccount.displayName
-        );
-
-        setConnectedAccounts((prev) => {
-          const filtered = prev.filter((acc) => acc.platform !== "LinkedIn");
-          return [...filtered, fallbackAccount];
-        });
-      }
-    } catch (error) {
-      console.error("❌ LinkedIn profile fetch error:", error);
-      // Still add account even if profile fetch fails
-      const fallbackAccount = {
-        id: "linkedin_" + Date.now(),
-        platform: "LinkedIn",
-        username: "LinkedIn User",
-        displayName: "LinkedIn User",
-        followers: "500+",
-        avatar: null,
-        status: "active",
-        lastSync: "Just now",
-        isPublic: true,
-      };
-
-      sessionStorage.setItem("linkedin_user_id", fallbackAccount.id);
-      sessionStorage.setItem("linkedin_username", fallbackAccount.username);
-      sessionStorage.setItem(
-        "linkedin_display_name",
-        fallbackAccount.displayName
-      );
-
-      setConnectedAccounts((prev) => {
-        const filtered = prev.filter((acc) => acc.platform !== "LinkedIn");
-        return [...filtered, fallbackAccount];
-      });
-    }
-  };
-
-  // =====================
-  // Keep existing Facebook function (it works)
-  // =====================
-  const connectFacebook = () => {
-    FB.login(
-      function (response) {
-        if (response.authResponse) {
-          const userToken = response.authResponse.accessToken;
-          FB.api("/me/accounts", { access_token: userToken }, function (pages) {
-            if (pages && pages.data && pages.data.length > 0) {
-              const page = pages.data[0];
-              sessionStorage.setItem("fb_page_id", page.id);
-              sessionStorage.setItem("fb_page_token", page.access_token);
-              sessionStorage.setItem("fb_page_name", page.name);
-
-              const facebookAccount = {
-                id: "facebook_" + page.id,
-                platform: "Facebook",
-                username: page.name,
-                displayName: page.name,
-                followers: "—",
-                avatar: null,
-                status: "active",
-                lastSync: "Just now",
-                isPublic: true,
-              };
-
-              setConnectedAccounts((prev) => {
-                const filtered = prev.filter(
-                  (acc) => acc.platform !== "Facebook"
+                // Store Facebook user data
+                sessionStorage.setItem(
+                  "facebook_access_token",
+                  userData.accessToken
                 );
-                return [...filtered, facebookAccount];
-              });
+                sessionStorage.setItem("facebook_user_id", user.id);
+                sessionStorage.setItem("facebook_user_name", user.name);
 
+                if (user.picture?.data?.url) {
+                  sessionStorage.setItem(
+                    "facebook_profile_image",
+                    user.picture.data.url
+                  );
+                }
+
+                // If user has pages, use the first page for posting
+                if (pages.length > 0) {
+                  const page = pages[0];
+                  sessionStorage.setItem("fb_page_id", page.id);
+                  sessionStorage.setItem("fb_page_token", page.access_token);
+                  sessionStorage.setItem("fb_page_name", page.name);
+                  
+                  if (page.picture?.data?.url) {
+                    sessionStorage.setItem("fb_page_avatar", page.picture.data.url);
+                  }
+
+                  // Add page account
+                  const facebookAccount = {
+                    id: "facebook_" + page.id,
+                    platform: "Facebook",
+                    username: page.name,
+                    displayName: page.name,
+                    followers: "—",
+                    avatar: page.picture?.data?.url || null,
+                    status: "active",
+                    lastSync: "Just now",
+                    isPublic: true,
+                  };
+
+                  setConnectedAccounts((prev) => {
+                    const filtered = prev.filter(
+                      (acc) => acc.platform !== "Facebook"
+                    );
+                    return [...filtered, facebookAccount];
+                  });
+
+                  showToast({
+                    message: `✅ Facebook Page "${page.name}" connected successfully!`,
+                    type: "success",
+                  });
+                } else {
+                  // No pages, use personal profile
+                  const facebookAccount = {
+                    id: "facebook_" + user.id,
+                    platform: "Facebook",
+                    username: user.name,
+                    displayName: user.name,
+                    followers: "—",
+                    avatar: user.picture?.data?.url || null,
+                    status: "active",
+                    lastSync: "Just now",
+                    isPublic: true,
+                  };
+
+                  setConnectedAccounts((prev) => {
+                    const filtered = prev.filter(
+                      (acc) => acc.platform !== "Facebook"
+                    );
+                    return [...filtered, facebookAccount];
+                  });
+
+                  showToast({
+                    message: "✅ Facebook connected successfully!",
+                    type: "success",
+                  });
+                }
+              } else {
+                throw new Error(
+                  userData.error || "Failed to get Facebook user data"
+                );
+              }
+            } catch (error) {
+              console.error("❌ Error fetching Facebook user data:", error);
               showToast({
-                message: `Connected to Facebook Page: ${page.name}`,
-                type: "success",
-              });
-              setShowAddModal(false);
-            } else {
-              showToast({
-                message: "No Facebook Pages found for this account.",
-                type: "warning",
+                message: "Failed to get Facebook user data",
+                type: "error",
               });
             }
-          });
-        } else {
+          } else if (event.data.error) {
+            showToast({
+              message: `Facebook authentication failed: ${event.data.error}`,
+              type: "error",
+            });
+          }
+
+          // Clean up
+          window.removeEventListener("message", handleMessage);
+          if (popup && !popup.closed) popup.close();
+          setShowAddModal(false);
+        }
+      };
+
+      window.addEventListener("message", handleMessage);
+
+      // Monitor popup for manual close
+      const checkClosed = setInterval(() => {
+        if (popup.closed) {
+          clearInterval(checkClosed);
+          window.removeEventListener("message", handleMessage);
           showToast({
-            message: "Facebook login cancelled or not authorized.",
+            message: "Facebook authentication cancelled",
             type: "warning",
           });
+          setShowAddModal(false);
         }
-      },
-      { scope: "pages_manage_posts,pages_show_list,pages_read_engagement" }
-    );
+      }, 1000);
+    } catch (error) {
+      console.error("❌ Facebook connection error:", error);
+      showToast({
+        message: `Facebook connection failed: ${error.message}`,
+        type: "error",
+      });
+    }
   };
 
   // =====================
@@ -1097,11 +490,12 @@ function Accounts() {
         `${platform}_followers_count`,
         `${platform}_profile_image`,
         `${platform}_connections_count`,
+        `${platform}_user_name`,
       ];
 
       // Special cases for platform-specific keys
       if (platform === "facebook") {
-        keysToRemove.push("fb_page_id", "fb_page_token", "fb_page_name");
+        keysToRemove.push("fb_page_id", "fb_page_token", "fb_page_name", "fb_page_avatar", "fb_page_followers");
       }
 
       keysToRemove.forEach((key) => sessionStorage.removeItem(key));

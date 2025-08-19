@@ -1,10 +1,12 @@
-// Updated PostNow.jsx - Handles simultaneous Twitter and Facebook posting
+// Updated PostNow.jsx - Works with Backend API
 import React, { useState } from "react";
 import "./PostNow.css";
 import { MdSend, MdOutlineImage, MdClose } from "react-icons/md";
 import { FaTwitter, FaFacebook, FaInstagram, FaLinkedin } from "react-icons/fa";
 import { IoFlashOutline } from "react-icons/io5";
 import { useToast } from "../Toast/ToastProvider";
+
+const BACKEND_URL = "http://localhost:3001";
 
 function PostNow() {
   const [postContent, setPostContent] = useState("");
@@ -157,306 +159,120 @@ function PostNow() {
   };
 
   // =====================
-  // TWITTER POSTING FUNCTION
+  // BACKEND API POSTING FUNCTIONS
   // =====================
-  const postToTwitter = async (content, imageUrl = null, imageFile = null) => {
-    const accessToken = sessionStorage.getItem("twitter_access_token");
-    const userId = sessionStorage.getItem("twitter_user_id");
-
-    if (!accessToken || !userId) {
-      throw new Error("Twitter not connected. Please connect your account first.");
+  
+  const postToPlatformViaBackend = async (platform, content, imageFile, imageUrl) => {
+    const formData = new FormData();
+    formData.append('content', content || '');
+    
+    if (imageFile) {
+      formData.append('image', imageFile);
+    }
+    
+    if (imageUrl) {
+      formData.append('imageUrl', imageUrl);
     }
 
-    try {
-      console.log("🐦 Posting to Twitter...", { content, imageUrl: !!imageUrl, imageFile: !!imageFile });
-
-      let mediaId = null;
-
-      // Handle image upload if provided
-      if (imageFile || imageUrl) {
-        console.log("📸 Uploading media to Twitter...");
-        try {
-          mediaId = await uploadTwitterMedia(imageFile, imageUrl, accessToken);
-          console.log("✅ Twitter media uploaded:", mediaId);
-        } catch (mediaError) {
-          console.warn("⚠️ Twitter media upload failed:", mediaError);
-          // Continue without image
-        }
+    // Add platform-specific credentials
+    if (platform === 'Twitter') {
+      const accessToken = sessionStorage.getItem("twitter_access_token");
+      if (!accessToken) {
+        throw new Error("Twitter access token not found");
       }
-
-      // Create tweet payload
-      const tweetPayload = {
-        text: content,
-      };
-
-      // Add media if available
-      if (mediaId) {
-        tweetPayload.media = {
-          media_ids: [mediaId],
-        };
+      formData.append('accessToken', accessToken);
+    
+    } else if (platform === 'Facebook') {
+      const pageId = sessionStorage.getItem("fb_page_id");
+      const pageToken = sessionStorage.getItem("fb_page_token");
+      if (!pageId || !pageToken) {
+        throw new Error("Facebook page credentials not found");
       }
-
-      console.log("📤 Sending tweet:", tweetPayload);
-
-      // Post tweet using Twitter API v2
-      const response = await fetch("https://api.twitter.com/2/tweets", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(tweetPayload),
-      });
-
-      const result = await response.json();
-      console.log("📋 Twitter API response:", result);
-
-      if (response.ok && result.data) {
-        console.log("✅ Tweet posted successfully:", result.data.id);
-        return {
-          success: true,
-          data: result.data,
-          tweetId: result.data.id,
-          message: "Tweet posted successfully!",
-        };
-      } else {
-        const errorMessage = result.detail || 
-                           result.errors?.[0]?.message || 
-                           result.error ||
-                           "Failed to post tweet";
-        throw new Error(errorMessage);
+      formData.append('pageId', pageId);
+      formData.append('pageToken', pageToken);
+    
+    } else if (platform === 'LinkedIn') {
+      const accessToken = sessionStorage.getItem("linkedin_access_token");
+      const userId = sessionStorage.getItem("linkedin_user_id");
+      if (!accessToken || !userId) {
+        throw new Error("LinkedIn credentials not found");
       }
-    } catch (error) {
-      console.error("❌ Twitter post error:", error);
-      throw error;
+      formData.append('accessToken', accessToken);
+      formData.append('userId', userId);
     }
+
+    const response = await fetch(`${BACKEND_URL}/api/posting/${platform.toLowerCase()}`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.error || `Failed to post to ${platform}`);
+    }
+
+    return result;
   };
 
-  // Twitter media upload function
-  const uploadTwitterMedia = async (imageFile, imageUrl, accessToken) => {
-    try {
-      let mediaData;
-
-      if (imageFile) {
-        // Upload file directly
-        const formData = new FormData();
-        formData.append("media", imageFile);
-        formData.append("media_category", "tweet_image");
-
-        const uploadResponse = await fetch("https://upload.twitter.com/1.1/media/upload.json", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${accessToken}`,
-          },
-          body: formData,
-        });
-
-        mediaData = await uploadResponse.json();
-      } else if (imageUrl) {
-        // For URL-based images, fetch and convert to blob first
-        const imageResponse = await fetch(imageUrl);
-        const imageBlob = await imageResponse.blob();
-
-        const formData = new FormData();
-        formData.append("media", imageBlob);
-        formData.append("media_category", "tweet_image");
-
-        const uploadResponse = await fetch("https://upload.twitter.com/1.1/media/upload.json", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${accessToken}`,
-          },
-          body: formData,
-        });
-
-        mediaData = await uploadResponse.json();
-      }
-
-      if (mediaData && mediaData.media_id_string) {
-        return mediaData.media_id_string;
-      } else {
-        throw new Error("Failed to upload media to Twitter");
-      }
-    } catch (error) {
-      console.error("Twitter media upload error:", error);
-      throw new Error(`Media upload failed: ${error.message}`);
+  // Multi-platform posting via backend
+  const postToMultiplePlatformsViaBackend = async (platforms, content, imageFile, imageUrl) => {
+    const formData = new FormData();
+    formData.append('content', content || '');
+    formData.append('platforms', JSON.stringify(platforms));
+    
+    if (imageFile) {
+      formData.append('image', imageFile);
     }
+    
+    if (imageUrl) {
+      formData.append('imageUrl', imageUrl);
+    }
+
+    // Gather credentials for all platforms
+    const credentials = {};
+    
+    if (platforms.includes('Twitter')) {
+      const twitterToken = sessionStorage.getItem("twitter_access_token");
+      if (twitterToken) {
+        credentials.twitter = { accessToken: twitterToken };
+      }
+    }
+    
+    if (platforms.includes('Facebook')) {
+      const fbPageId = sessionStorage.getItem("fb_page_id");
+      const fbPageToken = sessionStorage.getItem("fb_page_token");
+      if (fbPageId && fbPageToken) {
+        credentials.facebook = { pageId: fbPageId, pageToken: fbPageToken };
+      }
+    }
+    
+    if (platforms.includes('LinkedIn')) {
+      const linkedinToken = sessionStorage.getItem("linkedin_access_token");
+      const linkedinUserId = sessionStorage.getItem("linkedin_user_id");
+      if (linkedinToken && linkedinUserId) {
+        credentials.linkedin = { accessToken: linkedinToken, userId: linkedinUserId };
+      }
+    }
+
+    formData.append('credentials', JSON.stringify(credentials));
+
+    const response = await fetch(`${BACKEND_URL}/api/posting/multi`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.error || 'Failed to post to multiple platforms');
+    }
+
+    return result;
   };
 
   // =====================
-  // FACEBOOK POSTING FUNCTION
-  // =====================
-  const postToFacebook = async (content, imageUrl = null, imageFile = null) => {
-    const pageId = sessionStorage.getItem("fb_page_id");
-    const pageToken = sessionStorage.getItem("fb_page_token");
-
-    if (!pageId || !pageToken) {
-      throw new Error("Facebook not connected. Please connect your account first.");
-    }
-
-    try {
-      console.log("📘 Posting to Facebook...", { content, imageUrl: !!imageUrl, imageFile: !!imageFile });
-
-      return new Promise((resolve, reject) => {
-        if (typeof FB === 'undefined') {
-          reject(new Error("Facebook SDK not loaded"));
-          return;
-        }
-
-        if (imageFile) {
-          // Post with file upload
-          const formData = new FormData();
-          formData.append("source", imageFile);
-          formData.append("caption", content);
-          formData.append("access_token", pageToken);
-
-          fetch(`https://graph.facebook.com/${pageId}/photos`, {
-            method: "POST",
-            body: formData,
-          })
-          .then(response => response.json())
-          .then(data => {
-            if (data.error) {
-              reject(new Error(data.error.message));
-            } else {
-              console.log("✅ Facebook photo posted successfully:", data.id);
-              resolve({
-                success: true,
-                data: data,
-                postId: data.id,
-                message: "Facebook photo posted successfully!",
-              });
-            }
-          })
-          .catch(error => reject(error));
-
-        } else if (imageUrl && imageUrl.trim()) {
-          // Post with image URL
-          FB.api(
-            `/${pageId}/photos`,
-            "POST",
-            { 
-              url: imageUrl, 
-              caption: content, 
-              access_token: pageToken 
-            },
-            function (response) {
-              if (response && !response.error) {
-                console.log("✅ Facebook photo URL posted successfully:", response.id);
-                resolve({
-                  success: true,
-                  data: response,
-                  postId: response.id,
-                  message: "Facebook photo posted successfully!",
-                });
-              } else {
-                const errorMessage = response?.error?.message || "Failed to post photo URL to Facebook";
-                reject(new Error(errorMessage));
-              }
-            }
-          );
-
-        } else {
-          // Text-only post
-          FB.api(
-            `/${pageId}/feed`,
-            "POST",
-            { 
-              message: content, 
-              access_token: pageToken 
-            },
-            function (response) {
-              if (response && !response.error) {
-                console.log("✅ Facebook text post successful:", response.id);
-                resolve({
-                  success: true,
-                  data: response,
-                  postId: response.id,
-                  message: "Facebook post published successfully!",
-                });
-              } else {
-                const errorMessage = response?.error?.message || "Failed to post to Facebook";
-                reject(new Error(errorMessage));
-              }
-            }
-          );
-        }
-      });
-    } catch (error) {
-      console.error("❌ Facebook post error:", error);
-      throw error;
-    }
-  };
-
-  // =====================
-  // LINKEDIN POSTING FUNCTION
-  // =====================
-  const postToLinkedIn = async (content, imageUrl = null, imageFile = null) => {
-    const accessToken = sessionStorage.getItem("linkedin_access_token");
-    const userId = sessionStorage.getItem("linkedin_user_id");
-
-    if (!accessToken || !userId) {
-      throw new Error("LinkedIn not connected. Please connect your account first.");
-    }
-
-    try {
-      console.log("💼 Posting to LinkedIn...", { content, imageUrl: !!imageUrl, imageFile: !!imageFile });
-
-      // For now, post text-only to LinkedIn
-      // LinkedIn image posting requires more complex media upload process
-      const postPayload = {
-        author: `urn:li:person:${userId}`,
-        lifecycleState: "PUBLISHED",
-        specificContent: {
-          "com.linkedin.ugc.ShareContent": {
-            shareCommentary: {
-              text: content
-            },
-            shareMediaCategory: "NONE"
-          }
-        },
-        visibility: {
-          "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"
-        }
-      };
-
-      console.log("📤 Sending LinkedIn post:", postPayload);
-
-      const response = await fetch("https://api.linkedin.com/v2/ugcPosts", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-          "X-Restli-Protocol-Version": "2.0.0",
-        },
-        body: JSON.stringify(postPayload),
-      });
-
-      const result = await response.json();
-      console.log("📋 LinkedIn API response:", result);
-
-      if (response.ok && result.id) {
-        console.log("✅ LinkedIn post successful:", result.id);
-        return {
-          success: true,
-          data: result,
-          postId: result.id,
-          message: "LinkedIn post published successfully!",
-        };
-      } else {
-        const errorMessage = result.message || 
-                           result.error_description || 
-                           "Failed to post to LinkedIn";
-        throw new Error(errorMessage);
-      }
-    } catch (error) {
-      console.error("❌ LinkedIn post error:", error);
-      throw error;
-    }
-  };
-
-  // =====================
-  // MAIN POSTING HANDLER - SIMULTANEOUS POSTING
+  // MAIN POSTING HANDLER
   // =====================
   const handlePostNow = async (e) => {
     e.preventDefault();
@@ -468,59 +284,46 @@ function PostNow() {
     setIsPosting(true);
 
     try {
-      let postsSuccessful = 0;
-      let postsFailed = 0;
-      const postResults = [];
+      console.log('🚀 Starting posting process...', {
+        platforms: selectedPlatforms,
+        hasContent: !!postContent.trim(),
+        hasImage: !!(imageFile || imageUrl),
+        multiPlatform: selectedPlatforms.length > 1
+      });
 
-      // Create promises for all selected platforms
-      const postPromises = selectedPlatforms.map(async (platform) => {
-        try {
-          let result;
-          
-          if (platform === "Twitter") {
-            result = await postToTwitter(postContent, imageUrl, imageFile);
-          } else if (platform === "Facebook") {
-            result = await postToFacebook(postContent, imageUrl, imageFile);
-          } else if (platform === "LinkedIn") {
-            result = await postToLinkedIn(postContent, imageUrl, imageFile);
+      if (selectedPlatforms.length === 1) {
+        // Single platform posting
+        const platform = selectedPlatforms[0];
+        const result = await postToPlatformViaBackend(platform, postContent, imageFile, imageUrl);
+        
+        console.log(`✅ ${platform} posted successfully:`, result);
+        showSuccess(`✅ ${platform} post successful!`);
+        
+      } else {
+        // Multi-platform posting
+        const result = await postToMultiplePlatformsViaBackend(selectedPlatforms, postContent, imageFile, imageUrl);
+        
+        console.log('✅ Multi-platform posting complete:', result);
+        
+        // Show individual platform results
+        result.results.forEach(({ platform, success, result: platformResult, error }) => {
+          if (success) {
+            showSuccess(`✅ ${platform} post successful!`);
           } else {
-            throw new Error(`${platform} posting not implemented yet`);
-          }
-
-          return { platform, success: true, result };
-        } catch (error) {
-          console.error(`❌ Error posting to ${platform}:`, error);
-          return { platform, success: false, error: error.message };
-        }
-      });
-
-      // Wait for all posts to complete (simultaneous posting)
-      console.log("🚀 Starting simultaneous posting to", selectedPlatforms);
-      const results = await Promise.all(postPromises);
-
-      // Process results
-      results.forEach(({ platform, success, result, error }) => {
-        if (success) {
-          postsSuccessful++;
-          showSuccess(`✅ ${platform} post successful!`);
-          console.log(`✅ ${platform} posted successfully:`, result);
-        } else {
-          postsFailed++;
-          showToast({ 
-            message: `❌ ${platform} failed: ${error}`, 
-            type: 'error' 
-          });
-        }
-      });
-
-      // Show summary
-      if (selectedPlatforms.length > 1) {
-        setTimeout(() => {
-          if (postsSuccessful === selectedPlatforms.length) {
-            showSuccess(`🎉 Successfully posted to all ${postsSuccessful} platforms!`);
-          } else if (postsSuccessful > 0) {
             showToast({ 
-              message: `✅ Posted to ${postsSuccessful}/${selectedPlatforms.length} platforms`, 
+              message: `❌ ${platform} failed: ${error}`, 
+              type: 'error' 
+            });
+          }
+        });
+
+        // Show summary
+        setTimeout(() => {
+          if (result.successful === selectedPlatforms.length) {
+            showSuccess(`🎉 Successfully posted to all ${result.successful} platforms!`);
+          } else if (result.successful > 0) {
+            showToast({ 
+              message: `✅ Posted to ${result.successful}/${selectedPlatforms.length} platforms`, 
               type: 'warning' 
             });
           } else {
@@ -532,18 +335,23 @@ function PostNow() {
         }, 1000);
       }
 
-      // Reset form if at least one post was successful
-      if (postsSuccessful > 0) {
-        setPostContent("");
-        setImageUrl("");
-        setImageFile(null);
-        setImagePreview(null);
-        setSelectedPlatforms([]);
-      }
+      // Reset form if posting was successful
+      setPostContent("");
+      setImageUrl("");
+      setImageFile(null);
+      setImagePreview(null);
+      setSelectedPlatforms([]);
+
+      // Reset file input
+      const fileInput = document.querySelector('.image-file-input');
+      if (fileInput) fileInput.value = '';
 
     } catch (error) {
-      console.error('❌ Unexpected posting error:', error);
-      showToast({ message: 'An unexpected error occurred while posting.', type: 'error' });
+      console.error('❌ Posting error:', error);
+      showToast({ 
+        message: `Failed to post: ${error.message}`, 
+        type: 'error' 
+      });
     } finally {
       setIsPosting(false);
     }
@@ -744,6 +552,9 @@ function PostNow() {
             <p>Publishing to {selectedPlatforms.length} platform{selectedPlatforms.length > 1 ? 's' : ''}...</p>
             <div style={{ fontSize: '14px', color: 'var(--text-muted)', marginTop: '10px' }}>
               {selectedPlatforms.join(', ')}
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '5px' }}>
+              Via secure backend API
             </div>
           </div>
         </div>
