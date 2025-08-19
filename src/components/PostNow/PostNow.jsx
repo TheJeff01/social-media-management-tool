@@ -1,4 +1,4 @@
-// Updated PostNow.jsx with Real OAuth Integration
+// Updated PostNow.jsx - Handles simultaneous Twitter and Facebook posting
 import React, { useState } from "react";
 import "./PostNow.css";
 import { MdSend, MdOutlineImage, MdClose } from "react-icons/md";
@@ -157,7 +157,7 @@ function PostNow() {
   };
 
   // =====================
-  // REAL TWITTER POSTING WITH OAUTH
+  // TWITTER POSTING FUNCTION
   // =====================
   const postToTwitter = async (content, imageUrl = null, imageFile = null) => {
     const accessToken = sessionStorage.getItem("twitter_access_token");
@@ -220,7 +220,6 @@ function PostNow() {
           message: "Tweet posted successfully!",
         };
       } else {
-        // Handle Twitter API errors
         const errorMessage = result.detail || 
                            result.errors?.[0]?.message || 
                            result.error ||
@@ -285,7 +284,112 @@ function PostNow() {
   };
 
   // =====================
-  // REAL LINKEDIN POSTING WITH OAUTH
+  // FACEBOOK POSTING FUNCTION
+  // =====================
+  const postToFacebook = async (content, imageUrl = null, imageFile = null) => {
+    const pageId = sessionStorage.getItem("fb_page_id");
+    const pageToken = sessionStorage.getItem("fb_page_token");
+
+    if (!pageId || !pageToken) {
+      throw new Error("Facebook not connected. Please connect your account first.");
+    }
+
+    try {
+      console.log("📘 Posting to Facebook...", { content, imageUrl: !!imageUrl, imageFile: !!imageFile });
+
+      return new Promise((resolve, reject) => {
+        if (typeof FB === 'undefined') {
+          reject(new Error("Facebook SDK not loaded"));
+          return;
+        }
+
+        if (imageFile) {
+          // Post with file upload
+          const formData = new FormData();
+          formData.append("source", imageFile);
+          formData.append("caption", content);
+          formData.append("access_token", pageToken);
+
+          fetch(`https://graph.facebook.com/${pageId}/photos`, {
+            method: "POST",
+            body: formData,
+          })
+          .then(response => response.json())
+          .then(data => {
+            if (data.error) {
+              reject(new Error(data.error.message));
+            } else {
+              console.log("✅ Facebook photo posted successfully:", data.id);
+              resolve({
+                success: true,
+                data: data,
+                postId: data.id,
+                message: "Facebook photo posted successfully!",
+              });
+            }
+          })
+          .catch(error => reject(error));
+
+        } else if (imageUrl && imageUrl.trim()) {
+          // Post with image URL
+          FB.api(
+            `/${pageId}/photos`,
+            "POST",
+            { 
+              url: imageUrl, 
+              caption: content, 
+              access_token: pageToken 
+            },
+            function (response) {
+              if (response && !response.error) {
+                console.log("✅ Facebook photo URL posted successfully:", response.id);
+                resolve({
+                  success: true,
+                  data: response,
+                  postId: response.id,
+                  message: "Facebook photo posted successfully!",
+                });
+              } else {
+                const errorMessage = response?.error?.message || "Failed to post photo URL to Facebook";
+                reject(new Error(errorMessage));
+              }
+            }
+          );
+
+        } else {
+          // Text-only post
+          FB.api(
+            `/${pageId}/feed`,
+            "POST",
+            { 
+              message: content, 
+              access_token: pageToken 
+            },
+            function (response) {
+              if (response && !response.error) {
+                console.log("✅ Facebook text post successful:", response.id);
+                resolve({
+                  success: true,
+                  data: response,
+                  postId: response.id,
+                  message: "Facebook post published successfully!",
+                });
+              } else {
+                const errorMessage = response?.error?.message || "Failed to post to Facebook";
+                reject(new Error(errorMessage));
+              }
+            }
+          );
+        }
+      });
+    } catch (error) {
+      console.error("❌ Facebook post error:", error);
+      throw error;
+    }
+  };
+
+  // =====================
+  // LINKEDIN POSTING FUNCTION
   // =====================
   const postToLinkedIn = async (content, imageUrl = null, imageFile = null) => {
     const accessToken = sessionStorage.getItem("linkedin_access_token");
@@ -352,7 +456,7 @@ function PostNow() {
   };
 
   // =====================
-  // MAIN POSTING HANDLER
+  // MAIN POSTING HANDLER - SIMULTANEOUS POSTING
   // =====================
   const handlePostNow = async (e) => {
     e.preventDefault();
@@ -366,109 +470,69 @@ function PostNow() {
     try {
       let postsSuccessful = 0;
       let postsFailed = 0;
+      const postResults = [];
 
-      for (const platform of selectedPlatforms) {
+      // Create promises for all selected platforms
+      const postPromises = selectedPlatforms.map(async (platform) => {
         try {
+          let result;
+          
           if (platform === "Twitter") {
-            await postToTwitter(postContent, imageUrl, imageFile);
-            postsSuccessful++;
-            showSuccess(`🐦 Tweet posted successfully!`);
-          } 
-          else if (platform === "LinkedIn") {
-            await postToLinkedIn(postContent, imageUrl, imageFile);
-            postsSuccessful++;
-            showSuccess(`💼 LinkedIn post published successfully!`);
+            result = await postToTwitter(postContent, imageUrl, imageFile);
+          } else if (platform === "Facebook") {
+            result = await postToFacebook(postContent, imageUrl, imageFile);
+          } else if (platform === "LinkedIn") {
+            result = await postToLinkedIn(postContent, imageUrl, imageFile);
+          } else {
+            throw new Error(`${platform} posting not implemented yet`);
           }
-          else if (platform === "Facebook") {
-            const pageId = sessionStorage.getItem("fb_page_id");
-            const pageToken = sessionStorage.getItem("fb_page_token");
 
-            if (!pageId || !pageToken) {
-              throw new Error("No Facebook Page connected!");
-            }
-
-            if (imageFile) {
-              // File upload via FormData to Facebook Graph API
-              const formData = new FormData();
-              formData.append("source", imageFile);
-              formData.append("caption", postContent);
-              formData.append("access_token", pageToken);
-
-              const response = await fetch(`https://graph.facebook.com/${pageId}/photos`, {
-                method: "POST",
-                body: formData,
-              });
-
-              const data = await response.json();
-
-              if (!data.error) {
-                postsSuccessful++;
-                showSuccess(`📘 Photo successfully posted to Facebook!`);
-              } else {
-                throw new Error(data.error.message);
-              }
-            } else if (imageUrl.trim()) {
-              // Post image URL using FB SDK
-              if (typeof FB !== 'undefined') {
-                FB.api(
-                  `/${pageId}/photos`,
-                  "POST",
-                  { url: imageUrl, caption: postContent, access_token: pageToken },
-                  function (response) {
-                    if (response && !response.error) {
-                      postsSuccessful++;
-                      showSuccess(`📘 Photo successfully posted to Facebook!`);
-                    } else {
-                      postsFailed++;
-                      showToast({ message: "Failed to post photo URL to Facebook", type: "error" });
-                    }
-                  }
-                );
-              }
-            } else {
-              // Text-only post using FB SDK
-              if (typeof FB !== 'undefined') {
-                FB.api(
-                  `/${pageId}/feed`,
-                  "POST",
-                  { message: postContent, access_token: pageToken },
-                  function (response) {
-                    if (response && !response.error) {
-                      postsSuccessful++;
-                      showSuccess(`📘 Post successfully published to Facebook!`);
-                    } else {
-                      postsFailed++;
-                      showToast({ message: "Failed to post text to Facebook", type: "error" });
-                    }
-                  }
-                );
-              }
-            }
-          } 
-          else {
-            // For other platforms (Instagram, etc.) - show coming soon
-            showToast({ message: `${platform} posting coming soon!`, type: "info" });
-          }
+          return { platform, success: true, result };
         } catch (error) {
-          console.error(`Error posting to ${platform}:`, error);
+          console.error(`❌ Error posting to ${platform}:`, error);
+          return { platform, success: false, error: error.message };
+        }
+      });
+
+      // Wait for all posts to complete (simultaneous posting)
+      console.log("🚀 Starting simultaneous posting to", selectedPlatforms);
+      const results = await Promise.all(postPromises);
+
+      // Process results
+      results.forEach(({ platform, success, result, error }) => {
+        if (success) {
+          postsSuccessful++;
+          showSuccess(`✅ ${platform} post successful!`);
+          console.log(`✅ ${platform} posted successfully:`, result);
+        } else {
           postsFailed++;
           showToast({ 
-            message: `Failed to post to ${platform}: ${error.message}`, 
+            message: `❌ ${platform} failed: ${error}`, 
             type: 'error' 
           });
         }
-      }
+      });
 
-      // Show summary message if multiple platforms
+      // Show summary
       if (selectedPlatforms.length > 1) {
         setTimeout(() => {
-          if (postsSuccessful > 0) {
-            showSuccess(`🚀 Successfully posted to ${postsSuccessful}/${selectedPlatforms.length} platforms!`);
+          if (postsSuccessful === selectedPlatforms.length) {
+            showSuccess(`🎉 Successfully posted to all ${postsSuccessful} platforms!`);
+          } else if (postsSuccessful > 0) {
+            showToast({ 
+              message: `✅ Posted to ${postsSuccessful}/${selectedPlatforms.length} platforms`, 
+              type: 'warning' 
+            });
+          } else {
+            showToast({ 
+              message: `❌ Failed to post to all platforms`, 
+              type: 'error' 
+            });
           }
-        }, 500);
+        }, 1000);
       }
 
-      // Reset form after successful posting
+      // Reset form if at least one post was successful
       if (postsSuccessful > 0) {
         setPostContent("");
         setImageUrl("");
@@ -478,12 +542,23 @@ function PostNow() {
       }
 
     } catch (error) {
-      console.error('Error posting:', error);
-      showToast({ message: 'Failed to post. Please try again.', type: 'error' });
+      console.error('❌ Unexpected posting error:', error);
+      showToast({ message: 'An unexpected error occurred while posting.', type: 'error' });
     } finally {
       setIsPosting(false);
     }
   };
+
+  // Character count for different platforms
+  const getCharacterLimit = () => {
+    if (selectedPlatforms.includes("Twitter")) {
+      return 280; // Twitter limit
+    }
+    return 1000; // General limit for other platforms
+  };
+
+  const characterLimit = getCharacterLimit();
+  const isOverLimit = postContent.length > characterLimit;
 
   return (
     <>
@@ -516,7 +591,7 @@ function PostNow() {
         </div>
 
         <form onSubmit={handlePostNow} className="quick-post-form">
-          {/* Quick Platform Selection */}
+          {/* Platform Selection */}
           {connectedPlatforms.length > 0 ? (
             <div className="quick-platforms">
               {connectedPlatforms.map((platform) => (
@@ -548,7 +623,7 @@ function PostNow() {
             </div>
           )}
 
-          {/* Quick Post Content */}
+          {/* Post Content Area */}
           <div className="quick-post-content">
             <textarea
               value={postContent}
@@ -556,7 +631,7 @@ function PostNow() {
               placeholder="What's on your mind? Share it with the world right now..."
               className="quick-post-textarea"
               rows="4"
-              maxLength="280"
+              maxLength={characterLimit + 50} // Allow slight overage for validation
             />
 
             {/* Image Upload Section */}
@@ -607,10 +682,17 @@ function PostNow() {
 
             <div className="quick-post-footer">
               <div className="character-count-small">
-                {postContent.length}/280
-                {selectedPlatforms.includes("Twitter") && postContent.length > 280 && (
-                  <span style={{ color: '#ef4444', marginLeft: '5px' }}>
-                    (Twitter: {280 - postContent.length})
+                <span className={isOverLimit ? 'error' : ''}>
+                  {postContent.length}/{characterLimit}
+                </span>
+                {selectedPlatforms.includes("Twitter") && (
+                  <span className="tweet-counter">
+                    {isOverLimit ? ' (Too long for Twitter)' : ' (Twitter ready)'}
+                  </span>
+                )}
+                {selectedPlatforms.length > 1 && (
+                  <span style={{ marginLeft: '10px', color: 'var(--accent-color)' }}>
+                    📤 Posting to {selectedPlatforms.length} platforms
                   </span>
                 )}
               </div>
@@ -621,11 +703,17 @@ function PostNow() {
                   (!postContent.trim() && !imageUrl.trim() && !imageFile) ||
                   selectedPlatforms.length === 0 ||
                   isPosting ||
-                  connectedPlatforms.length === 0
+                  connectedPlatforms.length === 0 ||
+                  isOverLimit
                 }
               >
                 <MdSend />
-                {isPosting ? 'Posting...' : 'Post Now'}
+                {isPosting ? 
+                  `Posting to ${selectedPlatforms.length} platforms...` : 
+                  selectedPlatforms.length > 1 ? 
+                    `Post to ${selectedPlatforms.length} platforms` : 
+                    'Post Now'
+                }
               </button>
             </div>
           </div>
@@ -653,7 +741,10 @@ function PostNow() {
         <div className="spinner-overlay">
           <div className="loading-content">
             <div className="spinner"></div>
-            <p>Publishing your post...</p>
+            <p>Publishing to {selectedPlatforms.length} platform{selectedPlatforms.length > 1 ? 's' : ''}...</p>
+            <div style={{ fontSize: '14px', color: 'var(--text-muted)', marginTop: '10px' }}>
+              {selectedPlatforms.join(', ')}
+            </div>
           </div>
         </div>
       )}
