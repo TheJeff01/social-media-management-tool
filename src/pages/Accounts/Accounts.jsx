@@ -452,6 +452,304 @@ function Accounts() {
     }
   };
 
+  const connectLinkedIn = () => {
+    try {
+      console.log("💼 Opening LinkedIn OAuth popup...");
+
+      const popup = window.open(
+        `${BACKEND_URL}/auth/linkedin`,
+        "linkedinLogin",
+        "width=600,height=700,scrollbars=yes,resizable=yes"
+      );
+
+      if (!popup) {
+        showToast({
+          message: "Popup blocked! Please allow popups and try again.",
+          type: "error",
+        });
+        return;
+      }
+
+      // Handle popup response
+      const handleMessage = async (event) => {
+        if (event.origin !== "http://localhost:3001") return;
+
+        if (event.data && event.data.platform === "linkedin") {
+          console.log("📨 LinkedIn OAuth response:", event.data);
+
+          if (event.data.success && event.data.sessionId) {
+            try {
+              const response = await fetch(
+                `${BACKEND_URL}/auth/linkedin/user/${event.data.sessionId}`
+              );
+              const userData = await response.json();
+
+              if (response.ok) {
+                // Store LinkedIn data in sessionStorage
+                sessionStorage.setItem(
+                  "linkedin_access_token",
+                  userData.accessToken
+                );
+                sessionStorage.setItem("linkedin_user_id", userData.user.id);
+                sessionStorage.setItem(
+                  "linkedin_username",
+                  userData.user.localizedFirstName + " " + userData.user.localizedLastName
+                );
+                sessionStorage.setItem(
+                  "linkedin_display_name",
+                  userData.user.localizedFirstName + " " + userData.user.localizedLastName
+                );
+
+                // Store profile image if available
+                if (userData.user.profilePicture?.displayImage) {
+                  const profileImageUrl = userData.user.profilePicture.displayImage;
+                  sessionStorage.setItem("linkedin_profile_image", profileImageUrl);
+                }
+
+                // Store connections count if available (LinkedIn API may require special permissions)
+                if (userData.connectionsCount) {
+                  sessionStorage.setItem(
+                    "linkedin_connections_count",
+                    userData.connectionsCount.toLocaleString()
+                  );
+                }
+
+                // Add to connected accounts
+                const linkedinAccount = {
+                  id: "linkedin_" + userData.user.id,
+                  platform: "LinkedIn",
+                  username: userData.user.localizedFirstName + " " + userData.user.localizedLastName,
+                  displayName: userData.user.localizedFirstName + " " + userData.user.localizedLastName,
+                  followers: userData.connectionsCount?.toLocaleString() || "—",
+                  avatar: userData.user.profilePicture?.displayImage || null,
+                  status: "active",
+                  lastSync: "Just now",
+                  isPublic: true,
+                };
+
+                setConnectedAccounts((prev) => {
+                  const filtered = prev.filter(
+                    (acc) => acc.platform !== "LinkedIn"
+                  );
+                  return [...filtered, linkedinAccount];
+                });
+
+                showToast({
+                  message: "✅ LinkedIn connected successfully!",
+                  type: "success",
+                });
+              } else {
+                throw new Error(
+                  userData.error || "Failed to get LinkedIn user data"
+                );
+              }
+            } catch (error) {
+              console.error("❌ Error fetching LinkedIn user data:", error);
+              showToast({
+                message: "Failed to get LinkedIn user data",
+                type: "error",
+              });
+            }
+          } else if (event.data.error) {
+            showToast({
+              message: `LinkedIn authentication failed: ${event.data.error}`,
+              type: "error",
+            });
+          }
+
+          // Clean up
+          window.removeEventListener("message", handleMessage);
+          if (popup && !popup.closed) popup.close();
+          setShowAddModal(false);
+        }
+      };
+
+      window.addEventListener("message", handleMessage);
+
+      // Monitor popup for manual close
+      const checkClosed = setInterval(() => {
+        if (popup.closed) {
+          clearInterval(checkClosed);
+          window.removeEventListener("message", handleMessage);
+          showToast({
+            message: "LinkedIn authentication cancelled",
+            type: "warning",
+          });
+          setShowAddModal(false);
+        }
+      }, 1000);
+    } catch (error) {
+      console.error("❌ LinkedIn connection error:", error);
+      showToast({
+        message: `LinkedIn connection failed: ${error.message}`,
+        type: "error",
+      });
+    }
+  };
+  // =====================
+  // REAL INSTAGRAM OAuth 2.0 Implementation (via Facebook Graph API)
+  // =====================
+
+  const connectInstagram = () => {
+    try {
+      console.log("📷 Opening Instagram OAuth popup...");
+
+      const popup = window.open(
+        `${BACKEND_URL}/auth/instagram`,
+        "instagramLogin",
+        "width=600,height=700,scrollbars=yes,resizable=yes"
+      );
+
+      if (!popup) {
+        showToast({
+          message: "Popup blocked! Please allow popups and try again.",
+          type: "error",
+        });
+        return;
+      }
+
+      // Handle popup response
+      const handleMessage = async (event) => {
+        if (event.origin !== "http://localhost:3001") return;
+
+        if (event.data && event.data.platform === "instagram") {
+          console.log("📨 Instagram OAuth response:", event.data);
+
+          if (event.data.success && event.data.sessionId) {
+            try {
+              const response = await fetch(
+                `${BACKEND_URL}/auth/instagram/user/${event.data.sessionId}`
+              );
+              const userData = await response.json();
+
+              if (response.ok) {
+                // Store Instagram data in sessionStorage
+                sessionStorage.setItem(
+                  "instagram_access_token",
+                  userData.accessToken
+                );
+                sessionStorage.setItem("instagram_user_id", userData.user.id);
+                sessionStorage.setItem(
+                  "instagram_username",
+                  `@${userData.user.username}`
+                );
+                sessionStorage.setItem(
+                  "instagram_display_name",
+                  userData.user.name || userData.user.username
+                );
+
+                // Store follower count if available
+                if (userData.user.followers_count) {
+                  sessionStorage.setItem(
+                    "instagram_followers_count",
+                    userData.user.followers_count.toLocaleString()
+                  );
+                }
+
+                // Store profile image if available
+                if (userData.user.profile_picture_url) {
+                  sessionStorage.setItem(
+                    "instagram_profile_image",
+                    userData.user.profile_picture_url
+                  );
+                }
+
+                // Store account type (PERSONAL, BUSINESS, CREATOR)
+                if (userData.user.account_type) {
+                  sessionStorage.setItem(
+                    "instagram_account_type",
+                    userData.user.account_type
+                  );
+                }
+
+                // Store media count if available
+                if (userData.user.media_count) {
+                  sessionStorage.setItem(
+                    "instagram_media_count",
+                    userData.user.media_count.toString()
+                  );
+                }
+
+                // Add to connected accounts
+                const instagramAccount = {
+                  id: "instagram_" + userData.user.id,
+                  platform: "Instagram",
+                  username: `@${userData.user.username}`,
+                  displayName: userData.user.name || userData.user.username,
+                  followers: userData.user.followers_count?.toLocaleString() || "—",
+                  avatar: userData.user.profile_picture_url || null,
+                  status: "active",
+                  lastSync: "Just now",
+                  isPublic: userData.user.account_type !== "PERSONAL",
+                  accountType: userData.user.account_type || "PERSONAL",
+                };
+
+                setConnectedAccounts((prev) => {
+                  const filtered = prev.filter(
+                    (acc) => acc.platform !== "Instagram"
+                  );
+                  return [...filtered, instagramAccount];
+                });
+
+                const accountTypeText = userData.user.account_type === "BUSINESS" 
+                  ? " (Business Account)" 
+                  : userData.user.account_type === "CREATOR" 
+                  ? " (Creator Account)" 
+                  : "";
+
+                showToast({
+                  message: `✅ Instagram${accountTypeText} connected successfully!`,
+                  type: "success",
+                });
+              } else {
+                throw new Error(
+                  userData.error || "Failed to get Instagram user data"
+                );
+              }
+            } catch (error) {
+              console.error("❌ Error fetching Instagram user data:", error);
+              showToast({
+                message: "Failed to get Instagram user data",
+                type: "error",
+              });
+            }
+          } else if (event.data.error) {
+            showToast({
+              message: `Instagram authentication failed: ${event.data.error}`,
+              type: "error",
+            });
+          }
+
+          // Clean up
+          window.removeEventListener("message", handleMessage);
+          if (popup && !popup.closed) popup.close();
+          setShowAddModal(false);
+        }
+      };
+
+      window.addEventListener("message", handleMessage);
+
+      // Monitor popup for manual close
+      const checkClosed = setInterval(() => {
+        if (popup.closed) {
+          clearInterval(checkClosed);
+          window.removeEventListener("message", handleMessage);
+          showToast({
+            message: "Instagram authentication cancelled",
+            type: "warning",
+          });
+          setShowAddModal(false);
+        }
+      }, 1000);
+    } catch (error) {
+      console.error("❌ Instagram connection error:", error);
+      showToast({
+        message: `Instagram connection failed: ${error.message}`,
+        type: "error",
+      });
+    }
+  };
+
   // =====================
   // UI Event Handlers
   // =====================
@@ -799,11 +1097,7 @@ function Accounts() {
                       connectLinkedIn();
                       break;
                     case "Instagram":
-                      showToast({
-                        message: "Instagram integration coming soon!",
-                        type: "info",
-                      });
-                      setShowAddModal(false);
+                      connectInstagram();
                       break;
                     case "YouTube":
                       showToast({
