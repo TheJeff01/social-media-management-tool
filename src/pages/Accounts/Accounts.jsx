@@ -1,4 +1,4 @@
-// Real OAuth Integration for Twitter & LinkedIn - Accounts.jsx
+// Fixed OAuth Integration for Twitter, LinkedIn, Facebook & Instagram - Accounts.jsx
 const BACKEND_URL = "http://localhost:3001";
 import React, { useState, useEffect } from "react";
 import "./Accounts.css";
@@ -147,7 +147,7 @@ function Accounts() {
   ];
 
   // =====================
-  // REAL TWITTER OAuth 2.0 PKCE Implementation
+  // FIXED TWITTER OAuth 2.0 PKCE Implementation
   // =====================
 
   const connectTwitter = () => {
@@ -174,6 +174,9 @@ function Accounts() {
 
         if (event.data && event.data.platform === "twitter") {
           console.log("📨 Twitter OAuth response:", event.data);
+
+          // Clear the popup monitoring interval immediately
+          clearInterval(checkClosed);
 
           if (event.data.success && event.data.sessionId) {
             try {
@@ -246,13 +249,13 @@ function Accounts() {
             } catch (error) {
               console.error("❌ Error fetching Twitter user data:", error);
               showToast({
-                message: "Failed to get LinkedIn user data",
+                message: "Failed to get Twitter user data",
                 type: "error",
               });
             }
           } else if (event.data.error) {
             showToast({
-              message: `LinkedIn authentication failed: ${event.data.error}`,
+              message: `Twitter authentication failed: ${event.data.error}`,
               type: "error",
             });
           }
@@ -272,23 +275,23 @@ function Accounts() {
           clearInterval(checkClosed);
           window.removeEventListener("message", handleMessage);
           showToast({
-            message: "LinkedIn authentication cancelled",
+            message: "Twitter authentication cancelled",
             type: "warning",
           });
           setShowAddModal(false);
         }
       }, 1000);
     } catch (error) {
-      console.error("❌ LinkedIn connection error:", error);
+      console.error("❌ Twitter connection error:", error);
       showToast({
-        message: `LinkedIn connection failed: ${error.message}`,
+        message: `Twitter connection failed: ${error.message}`,
         type: "error",
       });
     }
   };
 
   // =====================
-  // REAL FACEBOOK OAuth 2.0 Implementation
+  // FIXED FACEBOOK OAuth 2.0 Implementation
   // =====================
 
   const connectFacebook = () => {
@@ -315,6 +318,9 @@ function Accounts() {
 
         if (event.data && event.data.platform === "facebook") {
           console.log("📨 Facebook OAuth response:", event.data);
+
+          // Clear the popup monitoring interval immediately
+          clearInterval(checkClosed);
 
           if (event.data.success && event.data.sessionId) {
             try {
@@ -348,9 +354,12 @@ function Accounts() {
                   sessionStorage.setItem("fb_page_id", page.id);
                   sessionStorage.setItem("fb_page_token", page.access_token);
                   sessionStorage.setItem("fb_page_name", page.name);
-                  
+
                   if (page.picture?.data?.url) {
-                    sessionStorage.setItem("fb_page_avatar", page.picture.data.url);
+                    sessionStorage.setItem(
+                      "fb_page_avatar",
+                      page.picture.data.url
+                    );
                   }
 
                   // Add page account
@@ -452,6 +461,10 @@ function Accounts() {
     }
   };
 
+  // =====================
+  // FIXED LINKEDIN OAuth 2.0 Implementation
+  // =====================
+
   const connectLinkedIn = () => {
     try {
       console.log("💼 Opening LinkedIn OAuth popup...");
@@ -477,6 +490,9 @@ function Accounts() {
         if (event.data && event.data.platform === "linkedin") {
           console.log("📨 LinkedIn OAuth response:", event.data);
 
+          // Clear the popup monitoring interval immediately
+          clearInterval(checkClosed);
+
           if (event.data.success && event.data.sessionId) {
             try {
               const response = await fetch(
@@ -485,43 +501,49 @@ function Accounts() {
               const userData = await response.json();
 
               if (response.ok) {
+                console.log("LinkedIn user data received:", userData);
+
                 // Store LinkedIn data in sessionStorage
                 sessionStorage.setItem(
                   "linkedin_access_token",
                   userData.accessToken
                 );
                 sessionStorage.setItem("linkedin_user_id", userData.user.id);
-                sessionStorage.setItem(
-                  "linkedin_username",
-                  userData.user.localizedFirstName + " " + userData.user.localizedLastName
-                );
-                sessionStorage.setItem(
-                  "linkedin_display_name",
-                  userData.user.localizedFirstName + " " + userData.user.localizedLastName
-                );
+
+                // Use the correct property names from the backend
+                const fullName =
+                  userData.user.name ||
+                  `${userData.user.firstName || ""} ${
+                    userData.user.lastName || ""
+                  }`.trim();
+
+                sessionStorage.setItem("linkedin_username", fullName);
+                sessionStorage.setItem("linkedin_display_name", fullName);
 
                 // Store profile image if available
-                if (userData.user.profilePicture?.displayImage) {
-                  const profileImageUrl = userData.user.profilePicture.displayImage;
-                  sessionStorage.setItem("linkedin_profile_image", profileImageUrl);
-                }
-
-                // Store connections count if available (LinkedIn API may require special permissions)
-                if (userData.connectionsCount) {
+                if (userData.user.picture) {
                   sessionStorage.setItem(
-                    "linkedin_connections_count",
-                    userData.connectionsCount.toLocaleString()
+                    "linkedin_profile_image",
+                    userData.user.picture
                   );
                 }
+
+                // Store email if available
+                if (userData.user.email) {
+                  sessionStorage.setItem("linkedin_email", userData.user.email);
+                }
+
+                // Note: LinkedIn API doesn't provide connection count in basic profile
+                sessionStorage.setItem("linkedin_connections_count", "—");
 
                 // Add to connected accounts
                 const linkedinAccount = {
                   id: "linkedin_" + userData.user.id,
                   platform: "LinkedIn",
-                  username: userData.user.localizedFirstName + " " + userData.user.localizedLastName,
-                  displayName: userData.user.localizedFirstName + " " + userData.user.localizedLastName,
-                  followers: userData.connectionsCount?.toLocaleString() || "—",
-                  avatar: userData.user.profilePicture?.displayImage || null,
+                  username: fullName,
+                  displayName: fullName,
+                  followers: "—", // LinkedIn connections require special permissions
+                  avatar: userData.user.picture || null,
                   status: "active",
                   lastSync: "Just now",
                   isPublic: true,
@@ -586,8 +608,9 @@ function Accounts() {
       });
     }
   };
+
   // =====================
-  // REAL INSTAGRAM OAuth 2.0 Implementation (via Facebook Graph API)
+  // FIXED INSTAGRAM OAuth 2.0 Implementation
   // =====================
 
   const connectInstagram = () => {
@@ -654,7 +677,7 @@ function Accounts() {
                   );
                 }
 
-                // Store account type (PERSONAL, BUSINESS, CREATOR)
+                // Store account type
                 if (userData.user.account_type) {
                   sessionStorage.setItem(
                     "instagram_account_type",
@@ -676,7 +699,8 @@ function Accounts() {
                   platform: "Instagram",
                   username: `@${userData.user.username}`,
                   displayName: userData.user.name || userData.user.username,
-                  followers: userData.user.followers_count?.toLocaleString() || "—",
+                  followers:
+                    userData.user.followers_count?.toLocaleString() || "—",
                   avatar: userData.user.profile_picture_url || null,
                   status: "active",
                   lastSync: "Just now",
@@ -691,11 +715,12 @@ function Accounts() {
                   return [...filtered, instagramAccount];
                 });
 
-                const accountTypeText = userData.user.account_type === "BUSINESS" 
-                  ? " (Business Account)" 
-                  : userData.user.account_type === "CREATOR" 
-                  ? " (Creator Account)" 
-                  : "";
+                const accountTypeText =
+                  userData.user.account_type === "BUSINESS"
+                    ? " (Business Account)"
+                    : userData.user.account_type === "CREATOR"
+                    ? " (Creator Account)"
+                    : "";
 
                 showToast({
                   message: `✅ Instagram${accountTypeText} connected successfully!`,
@@ -793,7 +818,13 @@ function Accounts() {
 
       // Special cases for platform-specific keys
       if (platform === "facebook") {
-        keysToRemove.push("fb_page_id", "fb_page_token", "fb_page_name", "fb_page_avatar", "fb_page_followers");
+        keysToRemove.push(
+          "fb_page_id",
+          "fb_page_token",
+          "fb_page_name",
+          "fb_page_avatar",
+          "fb_page_followers"
+        );
       }
 
       keysToRemove.forEach((key) => sessionStorage.removeItem(key));
@@ -1085,7 +1116,7 @@ function Accounts() {
                 onClick={() => {
                   const platformName = selectedPlatform.name;
 
-                  // Real OAuth connections
+                  // Real OAuth connections with proper platform routing
                   switch (platformName) {
                     case "Facebook":
                       connectFacebook();
@@ -1120,7 +1151,7 @@ function Accounts() {
                       });
                       setShowAddModal(false);
                   }
-                  setShowAddModal(false);
+                  // Note: Don't close modal here for OAuth platforms - let the OAuth flow handle it
                 }}
               >
                 Continue to {selectedPlatform.name}

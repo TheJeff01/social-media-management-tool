@@ -28,59 +28,94 @@ function PostNow() {
     { name: "Instagram", icon: <FaInstagram />, color: "#E4405F" },
     { name: "LinkedIn", icon: <FaLinkedin />, color: "#0077B5" },
   ];
+  // Add this debugging function at the top of your component
+  const debugCredentials = () => {
+    console.log("🔍 Debugging stored credentials:");
+
+    // Twitter credentials
+    const twitterToken = sessionStorage.getItem("twitter_access_token");
+    const twitterUserId = sessionStorage.getItem("twitter_user_id");
+    console.log("Twitter:", {
+      hasToken: !!twitterToken,
+      hasUserId: !!twitterUserId,
+      token: twitterToken ? twitterToken.substring(0, 20) + "..." : null,
+    });
+
+    // Facebook credentials
+    const fbPageId = sessionStorage.getItem("fb_page_id");
+    const fbPageToken = sessionStorage.getItem("fb_page_token");
+    console.log("Facebook:", {
+      hasPageId: !!fbPageId,
+      hasPageToken: !!fbPageToken,
+      pageId: fbPageId,
+      token: fbPageToken ? fbPageToken.substring(0, 20) + "..." : null,
+    });
+
+    // LinkedIn credentials
+    const linkedinToken = sessionStorage.getItem("linkedin_access_token");
+    const linkedinUserId = sessionStorage.getItem("linkedin_user_id");
+    console.log("LinkedIn:", {
+      hasToken: !!linkedinToken,
+      hasUserId: !!linkedinUserId,
+      userId: linkedinUserId,
+      token: linkedinToken ? linkedinToken.substring(0, 20) + "..." : null,
+    });
+  };
 
   // Load connected accounts from sessionStorage on component mount
   React.useEffect(() => {
     const loadConnectedAccounts = () => {
       const accounts = [];
-      
+
       // Check Facebook
       const fbPageId = sessionStorage.getItem("fb_page_id");
       const fbPageToken = sessionStorage.getItem("fb_page_token");
       const fbPageName = sessionStorage.getItem("fb_page_name");
-      
+
       if (fbPageId && fbPageToken) {
         accounts.push({
-          id: 'facebook_' + fbPageId,
+          id: "facebook_" + fbPageId,
           platform: "Facebook",
           username: fbPageName || "Facebook Page",
           displayName: fbPageName || "Facebook Page",
-          status: "active"
+          status: "active",
         });
       }
-      
+
       // Check Twitter
       const twitterToken = sessionStorage.getItem("twitter_access_token");
       const twitterUserId = sessionStorage.getItem("twitter_user_id");
       const twitterUsername = sessionStorage.getItem("twitter_username");
       const twitterDisplayName = sessionStorage.getItem("twitter_display_name");
-      
+
       if (twitterToken && twitterUserId) {
         accounts.push({
-          id: 'twitter_' + twitterUserId,
+          id: "twitter_" + twitterUserId,
           platform: "Twitter",
           username: twitterUsername || "@twitter_user",
           displayName: twitterDisplayName || "Twitter User",
-          status: "active"
+          status: "active",
         });
       }
-      
+
       // Check LinkedIn
       const linkedinToken = sessionStorage.getItem("linkedin_access_token");
       const linkedinUserId = sessionStorage.getItem("linkedin_user_id");
       const linkedinUsername = sessionStorage.getItem("linkedin_username");
-      const linkedinDisplayName = sessionStorage.getItem("linkedin_display_name");
-      
+      const linkedinDisplayName = sessionStorage.getItem(
+        "linkedin_display_name"
+      );
+
       if (linkedinToken && linkedinUserId) {
         accounts.push({
-          id: 'linkedin_' + linkedinUserId,
+          id: "linkedin_" + linkedinUserId,
           platform: "LinkedIn",
           username: linkedinUsername || "LinkedIn User",
           displayName: linkedinDisplayName || "LinkedIn User",
-          status: "active"
+          status: "active",
         });
       }
-      
+
       setConnectedAccounts(accounts);
       console.log("📱 Connected accounts loaded:", accounts);
     };
@@ -90,8 +125,8 @@ function PostNow() {
 
   // Get only connected platforms
   const getConnectedPlatforms = () => {
-    return allPlatforms.filter(platform => 
-      connectedAccounts.some(account => account.platform === platform.name)
+    return allPlatforms.filter((platform) =>
+      connectedAccounts.some((account) => account.platform === platform.name)
     );
   };
 
@@ -109,14 +144,14 @@ function PostNow() {
     const file = e.target.files[0];
     if (file) {
       setImageFile(file);
-      
+
       // Create preview URL
       const reader = new FileReader();
       reader.onload = (event) => {
         setImagePreview(event.target.result);
       };
       reader.readAsDataURL(file);
-      
+
       // Clear image URL if file is selected
       setImageUrl("");
     }
@@ -125,7 +160,7 @@ function PostNow() {
   const handleImageUrlChange = (e) => {
     const url = e.target.value;
     setImageUrl(url);
-    
+
     if (url) {
       setImagePreview(url);
       setImageFile(null); // Clear file if URL is provided
@@ -138,10 +173,10 @@ function PostNow() {
     setImageFile(null);
     setImageUrl("");
     setImagePreview(null);
-    
+
     // Reset file input
-    const fileInput = document.querySelector('.image-file-input');
-    if (fileInput) fileInput.value = '';
+    const fileInput = document.querySelector(".image-file-input");
+    if (fileInput) fileInput.value = "";
   };
 
   const openImageModal = () => {
@@ -161,52 +196,74 @@ function PostNow() {
   // =====================
   // BACKEND API POSTING FUNCTIONS
   // =====================
-  
-  const postToPlatformViaBackend = async (platform, content, imageFile, imageUrl) => {
+
+  const postToPlatformViaBackend = async (
+    platform,
+    content,
+    imageFile,
+    imageUrl
+  ) => {
+    console.log(`🚀 Posting to ${platform}:`, {
+      hasContent: !!content,
+      hasImageFile: !!imageFile,
+      hasImageUrl: !!imageUrl,
+    });
+
     const formData = new FormData();
-    formData.append('content', content || '');
-    
+    formData.append("content", content || "");
+
     if (imageFile) {
-      formData.append('image', imageFile);
-    }
-    
-    if (imageUrl) {
-      formData.append('imageUrl', imageUrl);
+      formData.append("image", imageFile);
     }
 
-    // Add platform-specific credentials
-    if (platform === 'Twitter') {
+    if (imageUrl) {
+      formData.append("imageUrl", imageUrl);
+    }
+
+    // Add platform-specific credentials with validation
+    if (platform === "Twitter") {
       const accessToken = sessionStorage.getItem("twitter_access_token");
       if (!accessToken) {
-        throw new Error("Twitter access token not found");
+        throw new Error(
+          "Twitter access token not found. Please reconnect your Twitter account."
+        );
       }
-      formData.append('accessToken', accessToken);
-    
-    } else if (platform === 'Facebook') {
+      formData.append("accessToken", accessToken);
+      console.log("✅ Twitter credentials added");
+    } else if (platform === "Facebook") {
       const pageId = sessionStorage.getItem("fb_page_id");
       const pageToken = sessionStorage.getItem("fb_page_token");
       if (!pageId || !pageToken) {
-        throw new Error("Facebook page credentials not found");
+        throw new Error(
+          "Facebook page credentials not found. Please reconnect your Facebook account."
+        );
       }
-      formData.append('pageId', pageId);
-      formData.append('pageToken', pageToken);
-    
-    } else if (platform === 'LinkedIn') {
+      formData.append("pageId", pageId);
+      formData.append("pageToken", pageToken);
+      console.log("✅ Facebook credentials added");
+    } else if (platform === "LinkedIn") {
       const accessToken = sessionStorage.getItem("linkedin_access_token");
       const userId = sessionStorage.getItem("linkedin_user_id");
       if (!accessToken || !userId) {
-        throw new Error("LinkedIn credentials not found");
+        throw new Error(
+          "LinkedIn credentials not found. Please reconnect your LinkedIn account."
+        );
       }
-      formData.append('accessToken', accessToken);
-      formData.append('userId', userId);
+      formData.append("accessToken", accessToken);
+      formData.append("userId", userId);
+      console.log("✅ LinkedIn credentials added");
     }
 
-    const response = await fetch(`${BACKEND_URL}/api/posting/${platform.toLowerCase()}`, {
-      method: 'POST',
-      body: formData,
-    });
+    const response = await fetch(
+      `${BACKEND_URL}/api/posting/${platform.toLowerCase()}`,
+      {
+        method: "POST",
+        body: formData,
+      }
+    );
 
     const result = await response.json();
+    console.log(`📨 ${platform} response:`, result);
 
     if (!response.ok) {
       throw new Error(result.error || `Failed to post to ${platform}`);
@@ -215,57 +272,92 @@ function PostNow() {
     return result;
   };
 
-  // Multi-platform posting via backend
-  const postToMultiplePlatformsViaBackend = async (platforms, content, imageFile, imageUrl) => {
+  // FIXED: Multi-platform posting with better error handling
+  const postToMultiplePlatformsViaBackend = async (
+    platforms,
+    content,
+    imageFile,
+    imageUrl
+  ) => {
+    // Debug credentials before posting
+    debugCredentials();
+
     const formData = new FormData();
-    formData.append('content', content || '');
-    formData.append('platforms', JSON.stringify(platforms));
-    
+    formData.append("content", content || "");
+    formData.append("platforms", JSON.stringify(platforms));
+
     if (imageFile) {
-      formData.append('image', imageFile);
-    }
-    
-    if (imageUrl) {
-      formData.append('imageUrl', imageUrl);
+      formData.append("image", imageFile);
     }
 
-    // Gather credentials for all platforms
+    if (imageUrl) {
+      formData.append("imageUrl", imageUrl);
+    }
+
+    // Gather credentials for all platforms with validation
     const credentials = {};
-    
-    if (platforms.includes('Twitter')) {
+    const missingCredentials = [];
+
+    if (platforms.includes("Twitter")) {
       const twitterToken = sessionStorage.getItem("twitter_access_token");
       if (twitterToken) {
         credentials.twitter = { accessToken: twitterToken };
+      } else {
+        missingCredentials.push("Twitter");
       }
     }
-    
-    if (platforms.includes('Facebook')) {
+
+    if (platforms.includes("Facebook")) {
       const fbPageId = sessionStorage.getItem("fb_page_id");
       const fbPageToken = sessionStorage.getItem("fb_page_token");
       if (fbPageId && fbPageToken) {
         credentials.facebook = { pageId: fbPageId, pageToken: fbPageToken };
+      } else {
+        missingCredentials.push("Facebook");
       }
     }
-    
-    if (platforms.includes('LinkedIn')) {
+
+    if (platforms.includes("LinkedIn")) {
       const linkedinToken = sessionStorage.getItem("linkedin_access_token");
       const linkedinUserId = sessionStorage.getItem("linkedin_user_id");
       if (linkedinToken && linkedinUserId) {
-        credentials.linkedin = { accessToken: linkedinToken, userId: linkedinUserId };
+        credentials.linkedin = {
+          accessToken: linkedinToken,
+          userId: linkedinUserId,
+        };
+      } else {
+        missingCredentials.push("LinkedIn");
       }
     }
 
-    formData.append('credentials', JSON.stringify(credentials));
+    // Check for missing credentials
+    if (missingCredentials.length > 0) {
+      throw new Error(
+        `Missing credentials for: ${missingCredentials.join(
+          ", "
+        )}. Please reconnect these accounts.`
+      );
+    }
+
+    console.log("📤 Sending multi-platform request:", {
+      platforms,
+      credentialsAvailable: Object.keys(credentials),
+      hasImage: !!(imageFile || imageUrl),
+      contentLength: content?.length || 0,
+    });
+
+    formData.append("credentials", JSON.stringify(credentials));
 
     const response = await fetch(`${BACKEND_URL}/api/posting/multi`, {
-      method: 'POST',
+      method: "POST",
       body: formData,
     });
 
     const result = await response.json();
+    console.log("📨 Backend response:", result);
 
     if (!response.ok) {
-      throw new Error(result.error || 'Failed to post to multiple platforms');
+      throw new Error(result.error || "Failed to post to multiple platforms");
     }
 
     return result;
@@ -274,89 +366,161 @@ function PostNow() {
   // =====================
   // MAIN POSTING HANDLER
   // =====================
+// IMPROVED: Main posting handler with better error reporting
   const handlePostNow = async (e) => {
     e.preventDefault();
 
-    if ((!postContent.trim() && !imageUrl.trim() && !imageFile) || selectedPlatforms.length === 0) {
+    if (
+      (!postContent.trim() && !imageUrl.trim() && !imageFile) ||
+      selectedPlatforms.length === 0
+    ) {
+      showToast({
+        message:
+          "Please enter content or add an image, and select at least one platform",
+        type: "warning",
+      });
       return;
     }
 
     setIsPosting(true);
+    let shouldResetForm = false; // Track if we should reset the form
 
     try {
-      console.log('🚀 Starting posting process...', {
+      console.log("🚀 Starting posting process...", {
         platforms: selectedPlatforms,
         hasContent: !!postContent.trim(),
         hasImage: !!(imageFile || imageUrl),
-        multiPlatform: selectedPlatforms.length > 1
+        multiPlatform: selectedPlatforms.length > 1,
       });
 
       if (selectedPlatforms.length === 1) {
         // Single platform posting
         const platform = selectedPlatforms[0];
-        const result = await postToPlatformViaBackend(platform, postContent, imageFile, imageUrl);
-        
+        console.log(`📤 Single platform posting to ${platform}`);
+
+        const result = await postToPlatformViaBackend(
+          platform,
+          postContent,
+          imageFile,
+          imageUrl
+        );
+
         console.log(`✅ ${platform} posted successfully:`, result);
         showSuccess(`✅ ${platform} post successful!`);
-        
-      } else {
-        // Multi-platform posting
-        const result = await postToMultiplePlatformsViaBackend(selectedPlatforms, postContent, imageFile, imageUrl);
-        
-        console.log('✅ Multi-platform posting complete:', result);
-        
-        // Show individual platform results
-        result.results.forEach(({ platform, success, result: platformResult, error }) => {
-          if (success) {
-            showSuccess(`✅ ${platform} post successful!`);
-          } else {
-            showToast({ 
-              message: `❌ ${platform} failed: ${error}`, 
-              type: 'error' 
-            });
-          }
+        showToast({
+          message: `Successfully posted to ${platform}!`,
+          type: "success",
         });
 
-        // Show summary
+        // Single platform succeeded, reset form
+        shouldResetForm = true;
+
+      } else {
+        // Multi-platform posting
+        console.log(`📤 Multi-platform posting to:`, selectedPlatforms);
+
+        const result = await postToMultiplePlatformsViaBackend(
+          selectedPlatforms,
+          postContent,
+          imageFile,
+          imageUrl
+        );
+
+        console.log("📊 Multi-platform posting results:", result);
+
+        // Process results
+        const successfulPosts = [];
+        const failedPosts = [];
+
+        result.results.forEach(
+          ({ platform, success, result: platformResult, error }) => {
+            if (success) {
+              successfulPosts.push(platform);
+              console.log(`✅ ${platform} success:`, platformResult);
+            } else {
+              failedPosts.push({ platform, error });
+              console.error(`❌ ${platform} failed:`, error);
+            }
+          }
+        );
+
+        // Show individual results
+        successfulPosts.forEach((platform) => {
+          showToast({
+            message: `✅ ${platform} posted successfully!`,
+            type: "success",
+          });
+        });
+
+        failedPosts.forEach(({ platform, error }) => {
+          showToast({
+            message: `❌ ${platform} failed: ${error}`,
+            type: "error",
+          });
+        });
+
+        // Show summary after individual notifications
         setTimeout(() => {
-          if (result.successful === selectedPlatforms.length) {
-            showSuccess(`🎉 Successfully posted to all ${result.successful} platforms!`);
-          } else if (result.successful > 0) {
-            showToast({ 
-              message: `✅ Posted to ${result.successful}/${selectedPlatforms.length} platforms`, 
-              type: 'warning' 
-            });
+          if (successfulPosts.length === selectedPlatforms.length) {
+            showSuccess(
+              `🎉 Successfully posted to all ${selectedPlatforms.length} platforms!`
+            );
+          } else if (successfulPosts.length > 0) {
+            showSuccess(
+              `✅ Posted to ${successfulPosts.length}/${selectedPlatforms.length} platforms`
+            );
           } else {
-            showToast({ 
-              message: `❌ Failed to post to all platforms`, 
-              type: 'error' 
+            showToast({
+              message: `❌ Failed to post to all platforms`,
+              type: "error",
             });
           }
-        }, 1000);
+        }, 2000);
+
+        // Reset form if at least one platform succeeded
+        shouldResetForm = successfulPosts.length > 0;
       }
 
       // Reset form if posting was successful
-      setPostContent("");
-      setImageUrl("");
-      setImageFile(null);
-      setImagePreview(null);
-      setSelectedPlatforms([]);
+      if (shouldResetForm) {
+        setPostContent("");
+        setImageUrl("");
+        setImageFile(null);
+        setImagePreview(null);
+        setSelectedPlatforms([]);
 
-      // Reset file input
-      const fileInput = document.querySelector('.image-file-input');
-      if (fileInput) fileInput.value = '';
+        // Reset file input
+        const fileInput = document.querySelector(".image-file-input");
+        if (fileInput) fileInput.value = "";
+      }
 
     } catch (error) {
-      console.error('❌ Posting error:', error);
-      showToast({ 
-        message: `Failed to post: ${error.message}`, 
-        type: 'error' 
-      });
+      console.error("❌ Posting error:", error);
+
+      // More specific error messages
+      if (error.message.includes("credentials")) {
+        showToast({
+          message: `Authentication issue: ${error.message}`,
+          type: "error",
+        });
+      } else if (
+        error.message.includes("network") ||
+        error.message.includes("fetch")
+      ) {
+        showToast({
+          message: `Network error: Please check your connection and try again`,
+          type: "error",
+        });
+      } else {
+        showToast({
+          message: `Failed to post: ${error.message}`,
+          type: "error",
+        });
+      }
     } finally {
       setIsPosting(false);
     }
   };
-
   // Character count for different platforms
   const getCharacterLimit = () => {
     if (selectedPlatforms.includes("Twitter")) {
@@ -364,6 +528,7 @@ function PostNow() {
     }
     return 1000; // General limit for other platforms
   };
+  
 
   const characterLimit = getCharacterLimit();
   const isOverLimit = postContent.length > characterLimit;
@@ -376,7 +541,7 @@ function PostNow() {
           <div className="success-content">
             <div className="success-icon">✨</div>
             <span>{successMessage}</span>
-            <button 
+            <button
               className="close-success"
               onClick={() => setShowSuccessMessage(false)}
             >
@@ -422,7 +587,10 @@ function PostNow() {
                 <div className="no-accounts-icon">🔗</div>
                 <div className="no-accounts-text">
                   <h3>No Connected Accounts</h3>
-                  <p>Connect your social media accounts to start posting instantly</p>
+                  <p>
+                    Connect your social media accounts to start posting
+                    instantly
+                  </p>
                   <a href="/accounts" className="connect-accounts-link">
                     Connect Accounts
                   </a>
@@ -451,7 +619,7 @@ function PostNow() {
                 className="image-file-input"
                 id="imageUpload"
               />
-              
+
               <input
                 type="url"
                 value={imageUrl}
@@ -459,7 +627,7 @@ function PostNow() {
                 placeholder="Or paste an image URL here..."
                 className="image-url-input"
               />
-              
+
               <label htmlFor="imageUpload" className="image-upload-label">
                 <MdOutlineImage />
                 Choose Image File
@@ -470,11 +638,11 @@ function PostNow() {
             {imagePreview && (
               <div className="image-preview-container">
                 <div className="image-preview">
-                  <img 
-                    src={imagePreview} 
-                    alt="Preview" 
+                  <img
+                    src={imagePreview}
+                    alt="Preview"
                     onClick={openImageModal}
-                    style={{ cursor: 'pointer' }}
+                    style={{ cursor: "pointer" }}
                   />
                   <button
                     type="button"
@@ -490,16 +658,20 @@ function PostNow() {
 
             <div className="quick-post-footer">
               <div className="character-count-small">
-                <span className={isOverLimit ? 'error' : ''}>
+                <span className={isOverLimit ? "error" : ""}>
                   {postContent.length}/{characterLimit}
                 </span>
                 {selectedPlatforms.includes("Twitter") && (
                   <span className="tweet-counter">
-                    {isOverLimit ? ' (Too long for Twitter)' : ' (Twitter ready)'}
+                    {isOverLimit
+                      ? " (Too long for Twitter)"
+                      : " (Twitter ready)"}
                   </span>
                 )}
                 {selectedPlatforms.length > 1 && (
-                  <span style={{ marginLeft: '10px', color: 'var(--accent-color)' }}>
+                  <span
+                    style={{ marginLeft: "10px", color: "var(--accent-color)" }}
+                  >
                     📤 Posting to {selectedPlatforms.length} platforms
                   </span>
                 )}
@@ -516,12 +688,11 @@ function PostNow() {
                 }
               >
                 <MdSend />
-                {isPosting ? 
-                  `Posting to ${selectedPlatforms.length} platforms...` : 
-                  selectedPlatforms.length > 1 ? 
-                    `Post to ${selectedPlatforms.length} platforms` : 
-                    'Post Now'
-                }
+                {isPosting
+                  ? `Posting to ${selectedPlatforms.length} platforms...`
+                  : selectedPlatforms.length > 1
+                  ? `Post to ${selectedPlatforms.length} platforms`
+                  : "Post Now"}
               </button>
             </div>
           </div>
@@ -531,7 +702,10 @@ function PostNow() {
       {/* Image Modal */}
       {showImageModal && imagePreview && (
         <div className="image-modal-overlay" onClick={closeImageModal}>
-          <div className="image-modal-content" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="image-modal-content"
+            onClick={(e) => e.stopPropagation()}
+          >
             <img src={imagePreview} alt="Full size preview" />
             <button
               className="image-modal-close"
@@ -549,13 +723,29 @@ function PostNow() {
         <div className="spinner-overlay">
           <div className="loading-content">
             <div className="spinner"></div>
-            <p>Publishing to {selectedPlatforms.length} platform{selectedPlatforms.length > 1 ? 's' : ''}...</p>
-            <div style={{ fontSize: '14px', color: 'var(--text-muted)', marginTop: '10px' }}>
-              {selectedPlatforms.join(', ')}
+            <p>
+              Publishing to {selectedPlatforms.length} platform
+              {selectedPlatforms.length > 1 ? "s" : ""}...
+            </p>
+            <div
+              style={{
+                fontSize: "14px",
+                color: "var(--text-muted)",
+                marginTop: "10px",
+              }}
+            >
+              {selectedPlatforms.join(", ")}
             </div>
-            <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '5px' }}>
+            <div
+              style={{
+                fontSize: "12px",
+                color: "var(--text-muted)",
+                marginTop: "5px",
+              }}
+            >
               Via secure backend API
             </div>
+            
           </div>
         </div>
       )}
