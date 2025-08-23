@@ -1,7 +1,7 @@
-// Updated PostNow.jsx - Works with Backend API
+// Updated PostNow.jsx - Multiple Images Support
 import React, { useState } from "react";
 import "./PostNow.css";
-import { MdSend, MdOutlineImage, MdClose } from "react-icons/md";
+import { MdSend, MdOutlineImage, MdClose, MdAdd } from "react-icons/md";
 import { FaTwitter, FaFacebook, FaInstagram, FaLinkedin } from "react-icons/fa";
 import { IoFlashOutline } from "react-icons/io5";
 import { useToast } from "../Toast/ToastProvider";
@@ -11,10 +11,13 @@ const BACKEND_URL = "http://localhost:3001";
 function PostNow() {
   const [postContent, setPostContent] = useState("");
   const [selectedPlatforms, setSelectedPlatforms] = useState([]);
-  const [imageUrl, setImageUrl] = useState("");
-  const [imageFile, setImageFile] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
+  
+  // Updated image state to handle multiple images
+  const [images, setImages] = useState([]); // Array of image objects
+  const [imageUrls, setImageUrls] = useState(""); // Comma-separated URLs
   const [showImageModal, setShowImageModal] = useState(false);
+  const [modalImageIndex, setModalImageIndex] = useState(0);
+  
   const [isPosting, setIsPosting] = useState(false);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
@@ -23,11 +26,12 @@ function PostNow() {
 
   // All available platforms with their details
   const allPlatforms = [
-    { name: "Twitter", icon: <FaTwitter />, color: "#1DA1F2" },
-    { name: "Facebook", icon: <FaFacebook />, color: "#4267B2" },
-    { name: "Instagram", icon: <FaInstagram />, color: "#E4405F" },
-    { name: "LinkedIn", icon: <FaLinkedin />, color: "#0077B5" },
+    { name: "Twitter", icon: <FaTwitter />, color: "#1DA1F2", maxImages: 4 },
+    { name: "Facebook", icon: <FaFacebook />, color: "#4267B2", maxImages: 10 },
+    { name: "Instagram", icon: <FaInstagram />, color: "#E4405F", maxImages: 10 },
+    { name: "LinkedIn", icon: <FaLinkedin />, color: "#0077B5", maxImages: 9 },
   ];
+
   // Add this debugging function at the top of your component
   const debugCredentials = () => {
     console.log("🔍 Debugging stored credentials:");
@@ -140,46 +144,123 @@ function PostNow() {
     );
   };
 
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setImageFile(file);
+  // Get the maximum image limit based on selected platforms
+  const getImageLimit = () => {
+    if (selectedPlatforms.length === 0) return 10; // Default limit
+    
+    const limits = selectedPlatforms.map(platformName => {
+      const platform = allPlatforms.find(p => p.name === platformName);
+      return platform ? platform.maxImages : 1;
+    });
+    
+    return Math.min(...limits); // Use the most restrictive limit
+  };
 
-      // Create preview URL
+  // Updated file upload handler for multiple files
+  const handleFileUpload = (e) => {
+    const files = Array.from(e.target.files);
+    const imageLimit = getImageLimit();
+    
+    if (files.length + images.length > imageLimit) {
+      showToast({
+        message: `Maximum ${imageLimit} images allowed for selected platforms`,
+        type: "warning",
+      });
+      return;
+    }
+
+    const newImages = [];
+    let processedCount = 0;
+
+    files.forEach((file, index) => {
       const reader = new FileReader();
       reader.onload = (event) => {
-        setImagePreview(event.target.result);
+        const imageObj = {
+          id: Date.now() + index,
+          file: file,
+          preview: event.target.result,
+          name: file.name,
+          size: file.size,
+          type: 'file'
+        };
+        newImages.push(imageObj);
+        processedCount++;
+        
+        if (processedCount === files.length) {
+          setImages(prev => [...prev, ...newImages]);
+        }
       };
       reader.readAsDataURL(file);
+    });
 
-      // Clear image URL if file is selected
-      setImageUrl("");
+    // Clear image URLs if files are selected
+    if (files.length > 0) {
+      setImageUrls("");
     }
   };
 
-  const handleImageUrlChange = (e) => {
-    const url = e.target.value;
-    setImageUrl(url);
+  // Updated URL handler for multiple URLs
+  const handleImageUrlsChange = (e) => {
+    const urls = e.target.value;
+    setImageUrls(urls);
 
-    if (url) {
-      setImagePreview(url);
-      setImageFile(null); // Clear file if URL is provided
+    if (urls.trim()) {
+      // Parse comma-separated URLs
+      const urlArray = urls.split(',')
+        .map(url => url.trim())
+        .filter(url => url.length > 0);
+      
+      const imageLimit = getImageLimit();
+      
+      if (urlArray.length > imageLimit) {
+        showToast({
+          message: `Maximum ${imageLimit} images allowed for selected platforms`,
+          type: "warning",
+        });
+        return;
+      }
+
+      const urlImages = urlArray.map((url, index) => ({
+        id: Date.now() + index,
+        url: url,
+        preview: url,
+        name: `URL Image ${index + 1}`,
+        type: 'url'
+      }));
+
+      setImages(urlImages);
     } else {
-      setImagePreview(null);
+      // Clear images if URLs are empty
+      setImages(prev => prev.filter(img => img.type === 'file'));
     }
   };
 
-  const removeImage = () => {
-    setImageFile(null);
-    setImageUrl("");
-    setImagePreview(null);
+  // Remove specific image
+  const removeImage = (imageId) => {
+    setImages(prev => prev.filter(img => img.id !== imageId));
+    
+    // If it was a URL image, update the URLs string
+    const remainingUrlImages = images
+      .filter(img => img.type === 'url' && img.id !== imageId)
+      .map(img => img.url);
+    
+    if (remainingUrlImages.length !== images.filter(img => img.type === 'url').length) {
+      setImageUrls(remainingUrlImages.join(', '));
+    }
+  };
 
+  // Clear all images
+  const clearAllImages = () => {
+    setImages([]);
+    setImageUrls("");
+    
     // Reset file input
     const fileInput = document.querySelector(".image-file-input");
     if (fileInput) fileInput.value = "";
   };
 
-  const openImageModal = () => {
+  const openImageModal = (index = 0) => {
+    setModalImageIndex(index);
     setShowImageModal(true);
   };
 
@@ -197,27 +278,32 @@ function PostNow() {
   // BACKEND API POSTING FUNCTIONS
   // =====================
 
-  const postToPlatformViaBackend = async (
-    platform,
-    content,
-    imageFile,
-    imageUrl
-  ) => {
+  const postToPlatformViaBackend = async (platform, content, images, imageUrls) => {
     console.log(`🚀 Posting to ${platform}:`, {
       hasContent: !!content,
-      hasImageFile: !!imageFile,
-      hasImageUrl: !!imageUrl,
+      imageCount: images.length,
+      hasImageUrls: !!imageUrls,
     });
 
     const formData = new FormData();
     formData.append("content", content || "");
 
-    if (imageFile) {
-      formData.append("image", imageFile);
-    }
+    // Add multiple image files
+    images.forEach((image, index) => {
+      if (image.type === 'file' && image.file) {
+        formData.append(`images`, image.file);
+      }
+    });
 
-    if (imageUrl) {
-      formData.append("imageUrl", imageUrl);
+    // Add image URLs (comma-separated)
+    const urlList = images
+      .filter(img => img.type === 'url')
+      .map(img => img.url)
+      .concat(imageUrls ? imageUrls.split(',').map(url => url.trim()).filter(url => url) : [])
+      .filter(url => url);
+    
+    if (urlList.length > 0) {
+      formData.append("imageUrls", urlList.join(','));
     }
 
     // Add platform-specific credentials with validation
@@ -272,12 +358,12 @@ function PostNow() {
     return result;
   };
 
-  // FIXED: Multi-platform posting with better error handling
+  // UPDATED: Multi-platform posting with multiple images
   const postToMultiplePlatformsViaBackend = async (
     platforms,
     content,
-    imageFile,
-    imageUrl
+    images,
+    imageUrls
   ) => {
     // Debug credentials before posting
     debugCredentials();
@@ -286,12 +372,22 @@ function PostNow() {
     formData.append("content", content || "");
     formData.append("platforms", JSON.stringify(platforms));
 
-    if (imageFile) {
-      formData.append("image", imageFile);
-    }
+    // Add multiple image files
+    images.forEach((image, index) => {
+      if (image.type === 'file' && image.file) {
+        formData.append(`images`, image.file);
+      }
+    });
 
-    if (imageUrl) {
-      formData.append("imageUrl", imageUrl);
+    // Add image URLs
+    const urlList = images
+      .filter(img => img.type === 'url')
+      .map(img => img.url)
+      .concat(imageUrls ? imageUrls.split(',').map(url => url.trim()).filter(url => url) : [])
+      .filter(url => url);
+    
+    if (urlList.length > 0) {
+      formData.append("imageUrls", urlList.join(','));
     }
 
     // Gather credentials for all platforms with validation
@@ -342,7 +438,7 @@ function PostNow() {
     console.log("📤 Sending multi-platform request:", {
       platforms,
       credentialsAvailable: Object.keys(credentials),
-      hasImage: !!(imageFile || imageUrl),
+      totalImages: images.length,
       contentLength: content?.length || 0,
     });
 
@@ -366,30 +462,47 @@ function PostNow() {
   // =====================
   // MAIN POSTING HANDLER
   // =====================
-// IMPROVED: Main posting handler with better error reporting
   const handlePostNow = async (e) => {
     e.preventDefault();
 
-    if (
-      (!postContent.trim() && !imageUrl.trim() && !imageFile) ||
-      selectedPlatforms.length === 0
-    ) {
+    const hasContent = postContent.trim();
+    const hasImages = images.length > 0 || imageUrls.trim();
+    const hasPlatforms = selectedPlatforms.length > 0;
+
+    if (!hasContent && !hasImages) {
       showToast({
-        message:
-          "Please enter content or add an image, and select at least one platform",
+        message: "Please enter content or add images",
+        type: "warning",
+      });
+      return;
+    }
+
+    if (!hasPlatforms) {
+      showToast({
+        message: "Please select at least one platform",
+        type: "warning",
+      });
+      return;
+    }
+
+    // Check image limits for selected platforms
+    const imageLimit = getImageLimit();
+    if (images.length > imageLimit) {
+      showToast({
+        message: `Too many images for selected platforms (max: ${imageLimit})`,
         type: "warning",
       });
       return;
     }
 
     setIsPosting(true);
-    let shouldResetForm = false; // Track if we should reset the form
+    let shouldResetForm = false;
 
     try {
       console.log("🚀 Starting posting process...", {
         platforms: selectedPlatforms,
-        hasContent: !!postContent.trim(),
-        hasImage: !!(imageFile || imageUrl),
+        hasContent: !!hasContent,
+        imageCount: images.length,
         multiPlatform: selectedPlatforms.length > 1,
       });
 
@@ -401,8 +514,8 @@ function PostNow() {
         const result = await postToPlatformViaBackend(
           platform,
           postContent,
-          imageFile,
-          imageUrl
+          images,
+          imageUrls
         );
 
         console.log(`✅ ${platform} posted successfully:`, result);
@@ -412,9 +525,7 @@ function PostNow() {
           type: "success",
         });
 
-        // Single platform succeeded, reset form
         shouldResetForm = true;
-
       } else {
         // Multi-platform posting
         console.log(`📤 Multi-platform posting to:`, selectedPlatforms);
@@ -422,8 +533,8 @@ function PostNow() {
         const result = await postToMultiplePlatformsViaBackend(
           selectedPlatforms,
           postContent,
-          imageFile,
-          imageUrl
+          images,
+          imageUrls
         );
 
         console.log("📊 Multi-platform posting results:", result);
@@ -477,23 +588,15 @@ function PostNow() {
           }
         }, 2000);
 
-        // Reset form if at least one platform succeeded
         shouldResetForm = successfulPosts.length > 0;
       }
 
       // Reset form if posting was successful
       if (shouldResetForm) {
         setPostContent("");
-        setImageUrl("");
-        setImageFile(null);
-        setImagePreview(null);
+        clearAllImages();
         setSelectedPlatforms([]);
-
-        // Reset file input
-        const fileInput = document.querySelector(".image-file-input");
-        if (fileInput) fileInput.value = "";
       }
-
     } catch (error) {
       console.error("❌ Posting error:", error);
 
@@ -521,6 +624,7 @@ function PostNow() {
       setIsPosting(false);
     }
   };
+
   // Character count for different platforms
   const getCharacterLimit = () => {
     if (selectedPlatforms.includes("Twitter")) {
@@ -528,10 +632,10 @@ function PostNow() {
     }
     return 1000; // General limit for other platforms
   };
-  
 
   const characterLimit = getCharacterLimit();
   const isOverLimit = postContent.length > characterLimit;
+  const imageLimit = getImageLimit();
 
   return (
     <>
@@ -575,7 +679,7 @@ function PostNow() {
                   }`}
                   onClick={() => togglePlatform(platform.name)}
                   style={{ "--platform-color": platform.color }}
-                  title={`Post to ${platform.name}`}
+                  title={`Post to ${platform.name} (max ${platform.maxImages} images)`}
                 >
                   {platform.icon}
                 </div>
@@ -599,6 +703,15 @@ function PostNow() {
             </div>
           )}
 
+          {/* Image limit indicator */}
+          {selectedPlatforms.length > 0 && (
+            <div className="image-limit-info">
+              <small style={{color: "var(--text-muted)"}}>
+                📸 Max {imageLimit} images for selected platforms • {images.length} selected
+              </small>
+            </div>
+          )}
+
           {/* Post Content Area */}
           <div className="quick-post-content">
             <textarea
@@ -607,54 +720,88 @@ function PostNow() {
               placeholder="What's on your mind? Share it with the world right now..."
               className="quick-post-textarea"
               rows="4"
-              maxLength={characterLimit + 50} // Allow slight overage for validation
+              maxLength={characterLimit + 50}
             />
 
-            {/* Image Upload Section */}
-            <div className="image-upload-section">
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleFileUpload}
-                className="image-file-input"
-                id="imageUpload"
-              />
+            {/* Multiple Images Upload Section */}
+            <div className="images-upload-section">
+              <div className="upload-controls">
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleFileUpload}
+                  className="image-file-input"
+                  id="imagesUpload"
+                />
 
-              <input
-                type="url"
-                value={imageUrl}
-                onChange={handleImageUrlChange}
-                placeholder="Or paste an image URL here..."
-                className="image-url-input"
-              />
+                <input
+                  type="text"
+                  value={imageUrls}
+                  onChange={handleImageUrlsChange}
+                  placeholder="Or paste image URLs here (comma-separated)..."
+                  className="image-url-input"
+                />
 
-              <label htmlFor="imageUpload" className="image-upload-label">
-                <MdOutlineImage />
-                Choose Image File
-              </label>
-            </div>
-
-            {/* Image Preview */}
-            {imagePreview && (
-              <div className="image-preview-container">
-                <div className="image-preview">
-                  <img
-                    src={imagePreview}
-                    alt="Preview"
-                    onClick={openImageModal}
-                    style={{ cursor: "pointer" }}
-                  />
-                  <button
-                    type="button"
-                    className="close-btn"
-                    onClick={removeImage}
-                    title="Remove image"
-                  >
-                    <MdClose />
-                  </button>
+                <div className="upload-buttons">
+                  <label htmlFor="imagesUpload" className="image-upload-label">
+                    <MdOutlineImage />
+                    Add Images
+                    <span className="upload-hint">({imageLimit - images.length} remaining)</span>
+                  </label>
+                  
+                  {images.length > 0 && (
+                    <button
+                      type="button"
+                      className="clear-images-btn"
+                      onClick={clearAllImages}
+                      title="Clear all images"
+                    >
+                      <MdClose />
+                      Clear All
+                    </button>
+                  )}
                 </div>
               </div>
-            )}
+
+              {/* Multiple Images Preview Grid */}
+              {images.length > 0 && (
+                <div className="images-preview-grid">
+                  {images.map((image, index) => (
+                    <div key={image.id} className="image-preview-item">
+                      <img
+                        src={image.preview}
+                        alt={`Preview ${index + 1}`}
+                        onClick={() => openImageModal(index)}
+                        style={{ cursor: "pointer" }}
+                      />
+                      <button
+                        type="button"
+                        className="remove-image-btn"
+                        onClick={() => removeImage(image.id)}
+                        title="Remove image"
+                      >
+                        <MdClose />
+                      </button>
+                      <div className="image-info">
+                        <small>{image.name}</small>
+                        {image.type === 'file' && image.size && (
+                          <small>{(image.size / 1024 / 1024).toFixed(1)}MB</small>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {/* Add more images button */}
+                  {images.length < imageLimit && (
+                    <label htmlFor="imagesUpload" className="add-more-images">
+                      <MdAdd />
+                      <span>Add More</span>
+                    </label>
+                  )}
+                </div>
+              )}
+            </div>
 
             <div className="quick-post-footer">
               <div className="character-count-small">
@@ -675,16 +822,24 @@ function PostNow() {
                     📤 Posting to {selectedPlatforms.length} platforms
                   </span>
                 )}
+                {images.length > 0 && (
+                  <span
+                    style={{ marginLeft: "10px", color: "var(--success-color)" }}
+                  >
+                    📸 {images.length} image{images.length > 1 ? 's' : ''}
+                  </span>
+                )}
               </div>
               <button
                 type="submit"
                 className="post-now-btn"
                 disabled={
-                  (!postContent.trim() && !imageUrl.trim() && !imageFile) ||
+                  ((!postContent.trim() && images.length === 0) ||
                   selectedPlatforms.length === 0 ||
                   isPosting ||
                   connectedPlatforms.length === 0 ||
-                  isOverLimit
+                  isOverLimit ||
+                  images.length > imageLimit)
                 }
               >
                 <MdSend />
@@ -699,14 +854,41 @@ function PostNow() {
         </form>
       </div>
 
-      {/* Image Modal */}
-      {showImageModal && imagePreview && (
+      {/* Image Modal with navigation */}
+      {showImageModal && images.length > 0 && (
         <div className="image-modal-overlay" onClick={closeImageModal}>
           <div
             className="image-modal-content"
             onClick={(e) => e.stopPropagation()}
           >
-            <img src={imagePreview} alt="Full size preview" />
+            <img src={images[modalImageIndex]?.preview} alt="Full size preview" />
+            
+            {images.length > 1 && (
+              <div className="modal-navigation">
+                <button
+                  className="nav-btn prev"
+                  onClick={() => setModalImageIndex(prev => 
+                    prev === 0 ? images.length - 1 : prev - 1
+                  )}
+                  title="Previous image"
+                >
+                  ‹
+                </button>
+                <span className="image-counter">
+                  {modalImageIndex + 1} of {images.length}
+                </span>
+                <button
+                  className="nav-btn next"
+                  onClick={() => setModalImageIndex(prev => 
+                    prev === images.length - 1 ? 0 : prev + 1
+                  )}
+                  title="Next image"
+                >
+                  ›
+                </button>
+              </div>
+            )}
+            
             <button
               className="image-modal-close"
               onClick={closeImageModal}
@@ -736,6 +918,17 @@ function PostNow() {
             >
               {selectedPlatforms.join(", ")}
             </div>
+            {images.length > 0 && (
+              <div
+                style={{
+                  fontSize: "12px",
+                  color: "var(--text-muted)",
+                  marginTop: "5px",
+                }}
+              >
+                📸 Uploading {images.length} image{images.length > 1 ? 's' : ''}
+              </div>
+            )}
             <div
               style={{
                 fontSize: "12px",
@@ -745,7 +938,6 @@ function PostNow() {
             >
               Via secure backend API
             </div>
-            
           </div>
         </div>
       )}
