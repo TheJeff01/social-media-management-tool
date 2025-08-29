@@ -120,6 +120,21 @@ function PostNow() {
         });
       }
 
+      // Check Instagram (Graph API requires page token + IG account id)
+      const instagramAccountId = sessionStorage.getItem("instagram_user_id");
+      const instagramPageAccessToken = sessionStorage.getItem("instagram_page_access_token");
+      const instagramUsername = sessionStorage.getItem("instagram_username");
+      const instagramDisplayName = sessionStorage.getItem("instagram_display_name");
+      if (instagramAccountId && instagramPageAccessToken) {
+        accounts.push({
+          id: "instagram_" + instagramAccountId,
+          platform: "Instagram",
+          username: instagramUsername || "@instagram_user",
+          displayName: instagramDisplayName || "Instagram User",
+          status: "active",
+        });
+      }
+
       setConnectedAccounts(accounts);
       console.log("📱 Connected accounts loaded:", accounts);
     };
@@ -278,6 +293,8 @@ function PostNow() {
   // BACKEND API POSTING FUNCTIONS
   // =====================
 
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
   const postToPlatformViaBackend = async (platform, content, images, imageUrls) => {
     console.log(`🚀 Posting to ${platform}:`, {
       hasContent: !!content,
@@ -338,24 +355,68 @@ function PostNow() {
       formData.append("accessToken", accessToken);
       formData.append("userId", userId);
       console.log("✅ LinkedIn credentials added");
-    }
-
-    const response = await fetch(
-      `${BACKEND_URL}/api/posting/${platform.toLowerCase()}`,
-      {
-        method: "POST",
-        body: formData,
+    } else if (platform === "Instagram") {
+      const pageAccessToken = sessionStorage.getItem("instagram_page_access_token");
+      const instagramAccountId = sessionStorage.getItem("instagram_user_id");
+      if (!pageAccessToken || !instagramAccountId) {
+        throw new Error(
+          "Instagram credentials not found. Please reconnect your Instagram account."
+        );
       }
-    );
-
-    const result = await response.json();
-    console.log(`📨 ${platform} response:`, result);
-
-    if (!response.ok) {
-      throw new Error(result.error || `Failed to post to ${platform}`);
+      formData.append("pageAccessToken", pageAccessToken);
+      formData.append("instagramAccountId", instagramAccountId);
+      console.log("✅ Instagram credentials added");
     }
 
-    return result;
+    // Retry with backoff for HTTP 429
+    const maxRetries = 3;
+    let attempt = 0;
+    let lastError;
+    while (attempt <= maxRetries) {
+      const response = await fetch(
+        `${BACKEND_URL}/api/posting/${platform.toLowerCase()}`,
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      let result;
+      try {
+        result = await response.json();
+      } catch (_) {
+        result = {};
+      }
+
+      console.log(`📨 ${platform} response (attempt ${attempt + 1}):`, result);
+
+      if (response.ok) {
+        return result;
+      }
+
+      // Handle 429 with optional Retry-After
+      if (response.status === 429 && attempt < maxRetries) {
+        const retryAfterHeader = response.headers.get("Retry-After");
+        let delayMs = 0;
+        if (retryAfterHeader) {
+          const parsed = Number(retryAfterHeader);
+          delayMs = Number.isFinite(parsed) ? parsed * 1000 : 0;
+        }
+        // Exponential backoff with jitter, base 1s up to 8s
+        const backoff = Math.min(8000, 1000 * Math.pow(2, attempt));
+        const jitter = Math.floor(Math.random() * 300);
+        const waitMs = Math.max(backoff + jitter, delayMs || 0);
+        console.warn(`⏳ Rate limited posting to ${platform}. Retrying in ${waitMs}ms...`);
+        await sleep(waitMs);
+        attempt += 1;
+        continue;
+      }
+
+      lastError = new Error(result?.error || `Failed to post to ${platform}`);
+      break;
+    }
+
+    throw lastError || new Error(`Failed to post to ${platform}`);
   };
 
   // UPDATED: Multi-platform posting with multiple images
@@ -423,6 +484,19 @@ function PostNow() {
         };
       } else {
         missingCredentials.push("LinkedIn");
+      }
+    }
+
+    if (platforms.includes("Instagram")) {
+      const pageAccessToken = sessionStorage.getItem("instagram_page_access_token");
+      const instagramAccountId = sessionStorage.getItem("instagram_user_id");
+      if (pageAccessToken && instagramAccountId) {
+        credentials.instagram = {
+          pageAccessToken,
+          instagramAccountId,
+        };
+      } else {
+        missingCredentials.push("Instagram");
       }
     }
 
@@ -601,7 +675,12 @@ function PostNow() {
       console.error("❌ Posting error:", error);
 
       // More specific error messages
-      if (error.message.includes("credentials")) {
+      if (error.message.includes("429") || /rate limit/i.test(error.message)) {
+        showToast({
+          message: `Rate limited: ${error.message}. We retried automatically. Please wait and try again if needed.`,
+          type: "warning",
+        });
+      } else if (error.message.includes("credentials")) {
         showToast({
           message: `Authentication issue: ${error.message}`,
           type: "error",

@@ -675,6 +675,19 @@ function Accounts() {
                   throw new Error("No Instagram business account linked.");
 
                 // Save Instagram details
+                // Store page access token needed for posting
+                if (igAccount.page_access_token) {
+                  sessionStorage.setItem(
+                    "instagram_page_access_token",
+                    igAccount.page_access_token
+                  );
+                } else if (userData.accessToken) {
+                  // Fallback to overall access token if specific page token provided separately
+                  sessionStorage.setItem(
+                    "instagram_page_access_token",
+                    userData.accessToken
+                  );
+                }
                 sessionStorage.setItem("instagram_user_id", igAccount.id);
                 sessionStorage.setItem(
                   "instagram_username",
