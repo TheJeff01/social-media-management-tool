@@ -312,12 +312,11 @@ function PostNow() {
       }
     });
 
-    // Add image URLs (comma-separated)
-    const urlList = images
-      .filter(img => img.type === 'url')
-      .map(img => img.url)
-      .concat(imageUrls ? imageUrls.split(',').map(url => url.trim()).filter(url => url) : [])
-      .filter(url => url);
+    // Add image URLs (deduplicated to avoid double posting)
+    const urlList = Array.from(new Set([
+      ...images.filter(img => img.type === 'url').map(img => img.url),
+      ...(imageUrls ? imageUrls.split(',').map(url => url.trim()).filter(Boolean) : [])
+    ].filter(Boolean)));
     
     if (urlList.length > 0) {
       formData.append("imageUrls", urlList.join(','));
@@ -440,12 +439,11 @@ function PostNow() {
       }
     });
 
-    // Add image URLs
-    const urlList = images
-      .filter(img => img.type === 'url')
-      .map(img => img.url)
-      .concat(imageUrls ? imageUrls.split(',').map(url => url.trim()).filter(url => url) : [])
-      .filter(url => url);
+    // Add image URLs (deduplicated to avoid double posting)
+    const urlList = Array.from(new Set([
+      ...images.filter(img => img.type === 'url').map(img => img.url),
+      ...(imageUrls ? imageUrls.split(',').map(url => url.trim()).filter(Boolean) : [])
+    ].filter(Boolean)));
     
     if (urlList.length > 0) {
       formData.append("imageUrls", urlList.join(','));
