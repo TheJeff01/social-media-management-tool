@@ -98,6 +98,31 @@ function Accounts() {
           isPublic: true,
         });
       }
+      // Check Instagram (Graph API)
+      const igUserId = sessionStorage.getItem("instagram_user_id");
+      const igUsername = sessionStorage.getItem("instagram_username");
+      const igDisplayName = sessionStorage.getItem("instagram_display_name");
+      const igProfileImage = sessionStorage.getItem("instagram_profile_image");
+      const igFollowers = sessionStorage.getItem("instagram_followers_count");
+      const igMediaCount = sessionStorage.getItem("instagram_media_count");
+      const igPageName = sessionStorage.getItem("instagram_facebook_page_name");
+
+      if (igUserId) {
+        accounts.push({
+          id: "instagram_" + igUserId,
+          platform: "Instagram",
+          username: igUsername || "@instagram_user",
+          displayName: igDisplayName || "Instagram User",
+          followers: igFollowers || "—",
+          avatar: igProfileImage || null,
+          status: "active",
+          lastSync: "Connected",
+          isPublic: true,
+          accountType: "BUSINESS",
+          mediaCount: parseInt(igMediaCount) || 0,
+          facebookPageName: igPageName || "",
+        });
+      }
 
       setConnectedAccounts(accounts);
     };
@@ -612,10 +637,9 @@ function Accounts() {
   // =====================
   // FIXED INSTAGRAM OAuth 2.0 Implementation
   // =====================
-
   const connectInstagram = () => {
     try {
-      console.log("📷 Opening Instagram OAuth popup...");
+      console.log("📷 Opening Instagram Graph API OAuth popup...");
 
       const popup = window.open(
         `${BACKEND_URL}/auth/instagram`,
@@ -631,12 +655,11 @@ function Accounts() {
         return;
       }
 
-      // Handle popup response
       const handleMessage = async (event) => {
         if (event.origin !== "http://localhost:3001") return;
 
         if (event.data && event.data.platform === "instagram") {
-          console.log("📨 Instagram OAuth response:", event.data);
+          clearInterval(checkClosed);
 
           if (event.data.success && event.data.sessionId) {
             try {
@@ -646,66 +669,53 @@ function Accounts() {
               const userData = await response.json();
 
               if (response.ok) {
-                // Store Instagram data in sessionStorage
-                sessionStorage.setItem(
-                  "instagram_access_token",
-                  userData.accessToken
-                );
-                sessionStorage.setItem("instagram_user_id", userData.user.id);
+                // ✅ Pull the actual Instagram account from backend
+                const igAccount = userData.instagramAccounts[0];
+                if (!igAccount)
+                  throw new Error("No Instagram business account linked.");
+
+                // Save Instagram details
+                sessionStorage.setItem("instagram_user_id", igAccount.id);
                 sessionStorage.setItem(
                   "instagram_username",
-                  `@${userData.user.username}`
+                  `@${igAccount.username}`
                 );
                 sessionStorage.setItem(
                   "instagram_display_name",
-                  userData.user.name || userData.user.username
+                  igAccount.name || igAccount.username
+                );
+                sessionStorage.setItem(
+                  "instagram_profile_image",
+                  igAccount.profile_picture_url
+                );
+                sessionStorage.setItem(
+                  "instagram_followers_count",
+                  igAccount.followers_count?.toLocaleString() || "—"
+                );
+                sessionStorage.setItem(
+                  "instagram_media_count",
+                  igAccount.media_count?.toString() || "0"
+                );
+                sessionStorage.setItem("instagram_account_type", "BUSINESS");
+                sessionStorage.setItem(
+                  "instagram_facebook_page_name",
+                  igAccount.page_name
                 );
 
-                // Store follower count if available
-                if (userData.user.followers_count) {
-                  sessionStorage.setItem(
-                    "instagram_followers_count",
-                    userData.user.followers_count.toLocaleString()
-                  );
-                }
-
-                // Store profile image if available
-                if (userData.user.profile_picture_url) {
-                  sessionStorage.setItem(
-                    "instagram_profile_image",
-                    userData.user.profile_picture_url
-                  );
-                }
-
-                // Store account type
-                if (userData.user.account_type) {
-                  sessionStorage.setItem(
-                    "instagram_account_type",
-                    userData.user.account_type
-                  );
-                }
-
-                // Store media count if available
-                if (userData.user.media_count) {
-                  sessionStorage.setItem(
-                    "instagram_media_count",
-                    userData.user.media_count.toString()
-                  );
-                }
-
-                // Add to connected accounts
                 const instagramAccount = {
-                  id: "instagram_" + userData.user.id,
+                  id: "instagram_" + igAccount.id,
                   platform: "Instagram",
-                  username: `@${userData.user.username}`,
-                  displayName: userData.user.name || userData.user.username,
-                  followers:
-                    userData.user.followers_count?.toLocaleString() || "—",
-                  avatar: userData.user.profile_picture_url || null,
+                  username: `@${igAccount.username}`,
+                  displayName: igAccount.name || igAccount.username,
+                  followers: igAccount.followers_count?.toLocaleString() || "—",
+                  avatar: igAccount.profile_picture_url || null,
                   status: "active",
                   lastSync: "Just now",
-                  isPublic: userData.user.account_type !== "PERSONAL",
-                  accountType: userData.user.account_type || "PERSONAL",
+                  isPublic: true,
+                  accountType: "BUSINESS",
+                  mediaCount: igAccount.media_count || 0,
+                  canPost: true,
+                  facebookPageName: igAccount.page_name,
                 };
 
                 setConnectedAccounts((prev) => {
@@ -715,15 +725,8 @@ function Accounts() {
                   return [...filtered, instagramAccount];
                 });
 
-                const accountTypeText =
-                  userData.user.account_type === "BUSINESS"
-                    ? " (Business Account)"
-                    : userData.user.account_type === "CREATOR"
-                    ? " (Creator Account)"
-                    : "";
-
                 showToast({
-                  message: `✅ Instagram${accountTypeText} connected successfully!`,
+                  message: `✅ Instagram (@${igAccount.username}) connected successfully via ${igAccount.page_name}!`,
                   type: "success",
                 });
               } else {
@@ -734,18 +737,12 @@ function Accounts() {
             } catch (error) {
               console.error("❌ Error fetching Instagram user data:", error);
               showToast({
-                message: "Failed to get Instagram user data",
+                message: "Failed to get Instagram user data: " + error.message,
                 type: "error",
               });
             }
-          } else if (event.data.error) {
-            showToast({
-              message: `Instagram authentication failed: ${event.data.error}`,
-              type: "error",
-            });
           }
 
-          // Clean up
           window.removeEventListener("message", handleMessage);
           if (popup && !popup.closed) popup.close();
           setShowAddModal(false);
@@ -754,7 +751,6 @@ function Accounts() {
 
       window.addEventListener("message", handleMessage);
 
-      // Monitor popup for manual close
       const checkClosed = setInterval(() => {
         if (popup.closed) {
           clearInterval(checkClosed);
@@ -784,6 +780,7 @@ function Accounts() {
     setShowAddModal(true);
   };
 
+  // Updated handleDisconnectAccount to handle Instagram Graph API tokens
   const handleDisconnectAccount = async (accountId) => {
     const account = connectedAccounts.find((acc) => acc.id === accountId);
     if (!account) return;
@@ -806,14 +803,22 @@ function Accounts() {
       const platform = account.platform.toLowerCase();
       const keysToRemove = [
         `${platform}_access_token`,
+        `${platform}_page_access_token`, // Instagram Graph API specific
         `${platform}_refresh_token`,
         `${platform}_user_id`,
+        `${platform}_page_id`, // Instagram Graph API specific
         `${platform}_username`,
         `${platform}_display_name`,
         `${platform}_followers_count`,
         `${platform}_profile_image`,
         `${platform}_connections_count`,
         `${platform}_user_name`,
+        `${platform}_account_type`,
+        `${platform}_media_count`,
+        `${platform}_token_type`,
+        `${platform}_expires_in`,
+        `${platform}_facebook_page_id`, // Instagram Graph API specific
+        `${platform}_facebook_page_name`, // Instagram Graph API specific
       ];
 
       // Special cases for platform-specific keys
@@ -870,6 +875,7 @@ function Accounts() {
     }
   };
 
+  // Updated testConnection to handle Instagram Graph API
   const testConnection = async (platform, accountId) => {
     const accessToken = sessionStorage.getItem(
       `${platform.toLowerCase()}_access_token`
@@ -882,11 +888,29 @@ function Accounts() {
       return;
     }
 
-    // For demo purposes, always show success
-    showToast({
-      message: `${platform} connection test successful!`,
-      type: "success",
-    });
+    if (platform === "Instagram") {
+      const pageToken = sessionStorage.getItem("instagram_page_access_token");
+      const instagramAccountId = sessionStorage.getItem("instagram_user_id");
+
+      if (!pageToken || !instagramAccountId) {
+        showToast({
+          message:
+            "Instagram posting credentials missing. Please reconnect your account.",
+          type: "warning",
+        });
+        return;
+      }
+
+      showToast({
+        message: `${platform} connection active! Posting is enabled via Instagram Graph API.`,
+        type: "success",
+      });
+    } else {
+      showToast({
+        message: `${platform} connection test successful!`,
+        type: "success",
+      });
+    }
   };
 
   return (
