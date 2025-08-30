@@ -1,7 +1,7 @@
-// Updated PostNow.jsx - Multiple Images Support
+// Updated PostNow.jsx - Multiple Images and Videos Support
 import React, { useState } from "react";
 import "./PostNow.css";
-import { MdSend, MdOutlineImage, MdClose, MdAdd } from "react-icons/md";
+import { MdSend, MdOutlineImage, MdClose, MdAdd, MdVideoLibrary } from "react-icons/md";
 import { FaTwitter, FaFacebook, FaInstagram, FaLinkedin } from "react-icons/fa";
 import { IoFlashOutline } from "react-icons/io5";
 import { useToast } from "../Toast/ToastProvider";
@@ -12,11 +12,11 @@ function PostNow() {
   const [postContent, setPostContent] = useState("");
   const [selectedPlatforms, setSelectedPlatforms] = useState([]);
   
-  // Updated image state to handle multiple images
-  const [images, setImages] = useState([]); // Array of image objects
-  const [imageUrls, setImageUrls] = useState(""); // Comma-separated URLs
-  const [showImageModal, setShowImageModal] = useState(false);
-  const [modalImageIndex, setModalImageIndex] = useState(0);
+  // Updated media state to handle both images and videos
+  const [media, setMedia] = useState([]); // Array of media objects (images and videos)
+  const [mediaUrls, setMediaUrls] = useState(""); // Comma-separated URLs
+  const [showMediaModal, setShowMediaModal] = useState(false);
+  const [modalMediaIndex, setModalMediaIndex] = useState(0);
   
   const [isPosting, setIsPosting] = useState(false);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
@@ -26,10 +26,10 @@ function PostNow() {
 
   // All available platforms with their details
   const allPlatforms = [
-    { name: "Twitter", icon: <FaTwitter />, color: "#1DA1F2", maxImages: 4 },
-    { name: "Facebook", icon: <FaFacebook />, color: "#4267B2", maxImages: 10 },
-    { name: "Instagram", icon: <FaInstagram />, color: "#E4405F", maxImages: 10 },
-    { name: "LinkedIn", icon: <FaLinkedin />, color: "#0077B5", maxImages: 9 },
+    { name: "Twitter", icon: <FaTwitter />, color: "#1DA1F2", maxMedia: 4, supportsVideo: true, videoFormats: ['mp4', 'mov'], maxVideoSize: 512 * 1024 * 1024 }, // 512MB
+    { name: "Facebook", icon: <FaFacebook />, color: "#4267B2", maxMedia: 10, supportsVideo: true, videoFormats: ['mp4', 'mov', 'avi'], maxVideoSize: 4 * 1024 * 1024 * 1024 }, // 4GB
+    { name: "Instagram", icon: <FaInstagram />, color: "#E4405F", maxMedia: 10, supportsVideo: true, videoFormats: ['mp4', 'mov'], maxVideoSize: 100 * 1024 * 1024 }, // 100MB
+    { name: "LinkedIn", icon: <FaLinkedin />, color: "#0077B5", maxMedia: 9, supportsVideo: true, videoFormats: ['mp4', 'mov', 'wmv', 'flv', 'avi'], maxVideoSize: 5 * 1024 * 1024 * 1024 }, // 5GB
   ];
 
   // Add this debugging function at the top of your component
@@ -159,65 +159,167 @@ function PostNow() {
     );
   };
 
-  // Get the maximum image limit based on selected platforms
-  const getImageLimit = () => {
+  // Get the maximum media limit based on selected platforms
+  const getMediaLimit = () => {
     if (selectedPlatforms.length === 0) return 10; // Default limit
     
     const limits = selectedPlatforms.map(platformName => {
       const platform = allPlatforms.find(p => p.name === platformName);
-      return platform ? platform.maxImages : 1;
+      return platform ? platform.maxMedia : 1;
     });
     
     return Math.min(...limits); // Use the most restrictive limit
   };
 
-  // Updated file upload handler for multiple files
+  // Check if video is supported by selected platforms
+  const isVideoSupported = () => {
+    if (selectedPlatforms.length === 0) return true;
+    
+    return selectedPlatforms.every(platformName => {
+      const platform = allPlatforms.find(p => p.name === platformName);
+      return platform ? platform.supportsVideo : false;
+    });
+  };
+
+  // Get allowed video formats
+  const getAllowedVideoFormats = () => {
+    if (selectedPlatforms.length === 0) return ['mp4', 'mov', 'avi', 'wmv', 'flv'];
+    
+    const formatSets = selectedPlatforms.map(platformName => {
+      const platform = allPlatforms.find(p => p.name === platformName);
+      return platform ? platform.videoFormats : [];
+    });
+    
+    // Get intersection of all format sets
+    return formatSets.reduce((common, formats) => 
+      common.filter(format => formats.includes(format))
+    );
+  };
+
+  // Get maximum video size
+  const getMaxVideoSize = () => {
+    if (selectedPlatforms.length === 0) return 512 * 1024 * 1024; // Default 512MB
+    
+    const limits = selectedPlatforms.map(platformName => {
+      const platform = allPlatforms.find(p => p.name === platformName);
+      return platform ? platform.maxVideoSize : 512 * 1024 * 1024;
+    });
+    
+    return Math.min(...limits); // Use the most restrictive limit
+  };
+
+  // Helper function to check file type
+  const isVideoFile = (file) => {
+    return file.type.startsWith('video/');
+  };
+
+  const isImageFile = (file) => {
+    return file.type.startsWith('image/');
+  };
+
+  // Helper function to format file size
+  const formatFileSize = (bytes) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  // Updated file upload handler for both images and videos
   const handleFileUpload = (e) => {
     const files = Array.from(e.target.files);
-    const imageLimit = getImageLimit();
+    const mediaLimit = getMediaLimit();
+    const maxVideoSize = getMaxVideoSize();
+    const allowedVideoFormats = getAllowedVideoFormats();
     
-    if (files.length + images.length > imageLimit) {
+    if (files.length + media.length > mediaLimit) {
       showToast({
-        message: `Maximum ${imageLimit} images allowed for selected platforms`,
+        message: `Maximum ${mediaLimit} files allowed for selected platforms`,
         type: "warning",
       });
       return;
     }
 
-    const newImages = [];
+    const newMedia = [];
     let processedCount = 0;
+    const validationErrors = [];
 
     files.forEach((file, index) => {
+      // Check file type
+      if (!isImageFile(file) && !isVideoFile(file)) {
+        validationErrors.push(`${file.name}: Only image and video files are allowed`);
+        processedCount++;
+        return;
+      }
+
+      // Check video support
+      if (isVideoFile(file) && !isVideoSupported()) {
+        validationErrors.push(`${file.name}: Video not supported by selected platforms`);
+        processedCount++;
+        return;
+      }
+
+      // Check video format
+      if (isVideoFile(file)) {
+        const fileExtension = file.name.split('.').pop().toLowerCase();
+        if (!allowedVideoFormats.includes(fileExtension)) {
+          validationErrors.push(`${file.name}: Format not supported. Allowed: ${allowedVideoFormats.join(', ')}`);
+          processedCount++;
+          return;
+        }
+
+        // Check video size
+        if (file.size > maxVideoSize) {
+          validationErrors.push(`${file.name}: Too large. Max size: ${formatFileSize(maxVideoSize)}`);
+          processedCount++;
+          return;
+        }
+      }
+
       const reader = new FileReader();
       reader.onload = (event) => {
-        const imageObj = {
+        const mediaObj = {
           id: Date.now() + index,
           file: file,
           preview: event.target.result,
           name: file.name,
           size: file.size,
-          type: 'file'
+          type: 'file',
+          mediaType: isVideoFile(file) ? 'video' : 'image',
+          format: file.name.split('.').pop().toLowerCase()
         };
-        newImages.push(imageObj);
+        newMedia.push(mediaObj);
         processedCount++;
         
         if (processedCount === files.length) {
-          setImages(prev => [...prev, ...newImages]);
+          if (validationErrors.length > 0) {
+            validationErrors.forEach(error => {
+              showToast({
+                message: error,
+                type: "warning",
+              });
+            });
+          }
+          
+          if (newMedia.length > 0) {
+            setMedia(prev => [...prev, ...newMedia]);
+          }
         }
       };
       reader.readAsDataURL(file);
     });
 
-    // Clear image URLs if files are selected
+    // Clear media URLs if files are selected
     if (files.length > 0) {
-      setImageUrls("");
+      setMediaUrls("");
     }
   };
 
-  // Updated URL handler for multiple URLs
-  const handleImageUrlsChange = (e) => {
+  // Updated URL handler for both images and videos
+  const handleMediaUrlsChange = (e) => {
     const urls = e.target.value;
-    setImageUrls(urls);
+    setMediaUrls(urls);
 
     if (urls.trim()) {
       // Parse comma-separated URLs
@@ -225,62 +327,71 @@ function PostNow() {
         .map(url => url.trim())
         .filter(url => url.length > 0);
       
-      const imageLimit = getImageLimit();
+      const mediaLimit = getMediaLimit();
       
-      if (urlArray.length > imageLimit) {
+      if (urlArray.length > mediaLimit) {
         showToast({
-          message: `Maximum ${imageLimit} images allowed for selected platforms`,
+          message: `Maximum ${mediaLimit} files allowed for selected platforms`,
           type: "warning",
         });
         return;
       }
 
-      const urlImages = urlArray.map((url, index) => ({
-        id: Date.now() + index,
-        url: url,
-        preview: url,
-        name: `URL Image ${index + 1}`,
-        type: 'url'
-      }));
+      const urlMedia = urlArray.map((url, index) => {
+        // Try to detect if URL is video based on extension or common patterns
+        const isVideo = /\.(mp4|mov|avi|wmv|flv|webm|m4v)(\?|$)/i.test(url) || 
+                       url.includes('youtube.com') || 
+                       url.includes('vimeo.com') ||
+                       url.includes('video');
+        
+        return {
+          id: Date.now() + index,
+          url: url,
+          preview: url,
+          name: `URL ${isVideo ? 'Video' : 'Image'} ${index + 1}`,
+          type: 'url',
+          mediaType: isVideo ? 'video' : 'image'
+        };
+      });
 
-      setImages(urlImages);
+      setMedia(urlMedia);
     } else {
-      // Clear images if URLs are empty
-      setImages(prev => prev.filter(img => img.type === 'file'));
+      // Clear media if URLs are empty
+      setMedia(prev => prev.filter(item => item.type === 'file'));
     }
   };
 
-  // Remove specific image
-  const removeImage = (imageId) => {
-    setImages(prev => prev.filter(img => img.id !== imageId));
+  // Remove specific media item
+  const removeMedia = (mediaId) => {
+    setMedia(prev => prev.filter(item => item.id !== mediaId));
     
-    // If it was a URL image, update the URLs string
-    const remainingUrlImages = images
-      .filter(img => img.type === 'url' && img.id !== imageId)
-      .map(img => img.url);
+    // If it was a URL media, update the URLs string
+    const remainingUrlMedia = media
+      .filter(item => item.type === 'url' && item.id !== mediaId)
+      .map(item => item.url);
     
-    if (remainingUrlImages.length !== images.filter(img => img.type === 'url').length) {
-      setImageUrls(remainingUrlImages.join(', '));
+    if (remainingUrlMedia.length !== media.filter(item => item.type === 'url').length) {
+      setMediaUrls(remainingUrlMedia.join(', '));
     }
   };
 
-  // Clear all images
-  const clearAllImages = () => {
-    setImages([]);
-    setImageUrls("");
+  // Clear all media
+  const clearAllMedia = () => {
+    setMedia([]);
+    setMediaUrls("");
     
     // Reset file input
-    const fileInput = document.querySelector(".image-file-input");
+    const fileInput = document.querySelector(".media-file-input");
     if (fileInput) fileInput.value = "";
   };
 
-  const openImageModal = (index = 0) => {
-    setModalImageIndex(index);
-    setShowImageModal(true);
+  const openMediaModal = (index = 0) => {
+    setModalMediaIndex(index);
+    setShowMediaModal(true);
   };
 
-  const closeImageModal = () => {
-    setShowImageModal(false);
+  const closeMediaModal = () => {
+    setShowMediaModal(false);
   };
 
   const showSuccess = (message) => {
@@ -295,31 +406,42 @@ function PostNow() {
 
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-  const postToPlatformViaBackend = async (platform, content, images, imageUrls) => {
+  const postToPlatformViaBackend = async (platform, content, media, mediaUrls) => {
     console.log(`🚀 Posting to ${platform}:`, {
       hasContent: !!content,
-      imageCount: images.length,
-      hasImageUrls: !!imageUrls,
+      mediaCount: media.length,
+      hasMediaUrls: !!mediaUrls,
     });
 
     const formData = new FormData();
     formData.append("content", content || "");
 
-    // Add multiple image files
+    // Separate images and videos
+    const images = media.filter(item => item.mediaType === 'image');
+    const videos = media.filter(item => item.mediaType === 'video');
+
+    // Add image files
     images.forEach((image, index) => {
       if (image.type === 'file' && image.file) {
         formData.append(`images`, image.file);
       }
     });
 
-    // Add image URLs (deduplicated to avoid double posting)
+    // Add video files
+    videos.forEach((video, index) => {
+      if (video.type === 'file' && video.file) {
+        formData.append(`videos`, video.file);
+      }
+    });
+
+    // Add media URLs (deduplicated)
     const urlList = Array.from(new Set([
-      ...images.filter(img => img.type === 'url').map(img => img.url),
-      ...(imageUrls ? imageUrls.split(',').map(url => url.trim()).filter(Boolean) : [])
+      ...media.filter(item => item.type === 'url').map(item => item.url),
+      ...(mediaUrls ? mediaUrls.split(',').map(url => url.trim()).filter(Boolean) : [])
     ].filter(Boolean)));
     
     if (urlList.length > 0) {
-      formData.append("imageUrls", urlList.join(','));
+      formData.append("mediaUrls", urlList.join(','));
     }
 
     // Add platform-specific credentials with validation
@@ -418,12 +540,12 @@ function PostNow() {
     throw lastError || new Error(`Failed to post to ${platform}`);
   };
 
-  // UPDATED: Multi-platform posting with multiple images
+  // UPDATED: Multi-platform posting with media support
   const postToMultiplePlatformsViaBackend = async (
     platforms,
     content,
-    images,
-    imageUrls
+    media,
+    mediaUrls
   ) => {
     // Debug credentials before posting
     debugCredentials();
@@ -432,21 +554,30 @@ function PostNow() {
     formData.append("content", content || "");
     formData.append("platforms", JSON.stringify(platforms));
 
-    // Add multiple image files
+    // Separate and add images and videos
+    const images = media.filter(item => item.mediaType === 'image');
+    const videos = media.filter(item => item.mediaType === 'video');
+
     images.forEach((image, index) => {
       if (image.type === 'file' && image.file) {
         formData.append(`images`, image.file);
       }
     });
 
-    // Add image URLs (deduplicated to avoid double posting)
+    videos.forEach((video, index) => {
+      if (video.type === 'file' && video.file) {
+        formData.append(`videos`, video.file);
+      }
+    });
+
+    // Add media URLs (deduplicated)
     const urlList = Array.from(new Set([
-      ...images.filter(img => img.type === 'url').map(img => img.url),
-      ...(imageUrls ? imageUrls.split(',').map(url => url.trim()).filter(Boolean) : [])
+      ...media.filter(item => item.type === 'url').map(item => item.url),
+      ...(mediaUrls ? mediaUrls.split(',').map(url => url.trim()).filter(Boolean) : [])
     ].filter(Boolean)));
     
     if (urlList.length > 0) {
-      formData.append("imageUrls", urlList.join(','));
+      formData.append("mediaUrls", urlList.join(','));
     }
 
     // Gather credentials for all platforms with validation
@@ -510,7 +641,9 @@ function PostNow() {
     console.log("📤 Sending multi-platform request:", {
       platforms,
       credentialsAvailable: Object.keys(credentials),
-      totalImages: images.length,
+      totalMedia: media.length,
+      images: images.length,
+      videos: videos.length,
       contentLength: content?.length || 0,
     });
 
@@ -538,12 +671,12 @@ function PostNow() {
     e.preventDefault();
 
     const hasContent = postContent.trim();
-    const hasImages = images.length > 0 || imageUrls.trim();
+    const hasMedia = media.length > 0 || mediaUrls.trim();
     const hasPlatforms = selectedPlatforms.length > 0;
 
-    if (!hasContent && !hasImages) {
+    if (!hasContent && !hasMedia) {
       showToast({
-        message: "Please enter content or add images",
+        message: "Please enter content or add media",
         type: "warning",
       });
       return;
@@ -557,11 +690,21 @@ function PostNow() {
       return;
     }
 
-    // Check image limits for selected platforms
-    const imageLimit = getImageLimit();
-    if (images.length > imageLimit) {
+    // Check media limits for selected platforms
+    const mediaLimit = getMediaLimit();
+    if (media.length > mediaLimit) {
       showToast({
-        message: `Too many images for selected platforms (max: ${imageLimit})`,
+        message: `Too many files for selected platforms (max: ${mediaLimit})`,
+        type: "warning",
+      });
+      return;
+    }
+
+    // Check video support
+    const hasVideos = media.some(item => item.mediaType === 'video');
+    if (hasVideos && !isVideoSupported()) {
+      showToast({
+        message: "Videos are not supported by all selected platforms",
         type: "warning",
       });
       return;
@@ -574,7 +717,8 @@ function PostNow() {
       console.log("🚀 Starting posting process...", {
         platforms: selectedPlatforms,
         hasContent: !!hasContent,
-        imageCount: images.length,
+        mediaCount: media.length,
+        hasVideos,
         multiPlatform: selectedPlatforms.length > 1,
       });
 
@@ -586,8 +730,8 @@ function PostNow() {
         const result = await postToPlatformViaBackend(
           platform,
           postContent,
-          images,
-          imageUrls
+          media,
+          mediaUrls
         );
 
         console.log(`✅ ${platform} posted successfully:`, result);
@@ -605,8 +749,8 @@ function PostNow() {
         const result = await postToMultiplePlatformsViaBackend(
           selectedPlatforms,
           postContent,
-          images,
-          imageUrls
+          media,
+          mediaUrls
         );
 
         console.log("📊 Multi-platform posting results:", result);
@@ -666,7 +810,7 @@ function PostNow() {
       // Reset form if posting was successful
       if (shouldResetForm) {
         setPostContent("");
-        clearAllImages();
+        clearAllMedia();
         setSelectedPlatforms([]);
       }
     } catch (error) {
@@ -712,7 +856,7 @@ function PostNow() {
 
   const characterLimit = getCharacterLimit();
   const isOverLimit = postContent.length > characterLimit;
-  const imageLimit = getImageLimit();
+  const mediaLimit = getMediaLimit();
 
   return (
     <>
@@ -756,7 +900,7 @@ function PostNow() {
                   }`}
                   onClick={() => togglePlatform(platform.name)}
                   style={{ "--platform-color": platform.color }}
-                  title={`Post to ${platform.name} (max ${platform.maxImages} images)`}
+                  title={`Post to ${platform.name} (max ${platform.maxMedia} files${platform.supportsVideo ? ', supports video' : ''})`}
                 >
                   {platform.icon}
                 </div>
@@ -780,11 +924,15 @@ function PostNow() {
             </div>
           )}
 
-          {/* Image limit indicator */}
+          {/* Media limit and video support indicators */}
           {selectedPlatforms.length > 0 && (
-            <div className="image-limit-info">
+            <div className="media-limit-info">
               <small style={{color: "var(--text-muted)"}}>
-                📸 Max {imageLimit} images for selected platforms • {images.length} selected
+                📁 Max {mediaLimit} files for selected platforms • {media.length} selected
+                {isVideoSupported() && " • 🎬 Video supported"}
+                {!isVideoSupported() && media.some(item => item.mediaType === 'video') && (
+                  <span style={{color: "var(--error-color)"}}> • ⚠️ Video not supported by all platforms</span>
+                )}
               </small>
             </div>
           )}
@@ -800,39 +948,47 @@ function PostNow() {
               maxLength={characterLimit + 50}
             />
 
-            {/* Multiple Images Upload Section */}
-            <div className="images-upload-section">
+            {/* Multiple Media Upload Section */}
+            <div className="media-upload-section">
               <div className="upload-controls">
                 <input
                   type="file"
-                  accept="image/*"
+                  accept="image/*,video/*"
                   multiple
                   onChange={handleFileUpload}
-                  className="image-file-input"
-                  id="imagesUpload"
+                  className="media-file-input"
+                  id="mediaUpload"
                 />
 
                 <input
                   type="text"
-                  value={imageUrls}
-                  onChange={handleImageUrlsChange}
-                  placeholder="Or paste image URLs here (comma-separated)..."
-                  className="image-url-input"
+                  value={mediaUrls}
+                  onChange={handleMediaUrlsChange}
+                  placeholder="Or paste image/video URLs here (comma-separated)..."
+                  className="media-url-input"
                 />
 
                 <div className="upload-buttons">
-                  <label htmlFor="imagesUpload" className="image-upload-label">
+                  <label htmlFor="mediaUpload" className="media-upload-label">
                     <MdOutlineImage />
                     Add Images
-                    <span className="upload-hint">({imageLimit - images.length} remaining)</span>
+                    <span className="upload-hint">({mediaLimit - media.filter(item => item.mediaType === 'image').length} remaining)</span>
                   </label>
                   
-                  {images.length > 0 && (
+                  {isVideoSupported() && (
+                    <label htmlFor="mediaUpload" className="media-upload-label video">
+                      <MdVideoLibrary />
+                      Add Videos
+                      <span className="upload-hint">({getAllowedVideoFormats().join(', ')})</span>
+                    </label>
+                  )}
+                  
+                  {media.length > 0 && (
                     <button
                       type="button"
-                      className="clear-images-btn"
-                      onClick={clearAllImages}
-                      title="Clear all images"
+                      className="clear-media-btn"
+                      onClick={clearAllMedia}
+                      title="Clear all media"
                     >
                       <MdClose />
                       Clear All
@@ -841,37 +997,61 @@ function PostNow() {
                 </div>
               </div>
 
-              {/* Multiple Images Preview Grid */}
-              {images.length > 0 && (
-                <div className="images-preview-grid">
-                  {images.map((image, index) => (
-                    <div key={image.id} className="image-preview-item">
-                      <img
-                        src={image.preview}
-                        alt={`Preview ${index + 1}`}
-                        onClick={() => openImageModal(index)}
-                        style={{ cursor: "pointer" }}
-                      />
+              {/* Multiple Media Preview Grid */}
+              {media.length > 0 && (
+                <div className="media-preview-grid">
+                  {media.map((mediaItem, index) => (
+                    <div key={mediaItem.id} className="media-preview-item">
+                      {mediaItem.mediaType === 'image' ? (
+                        <img
+                          src={mediaItem.preview}
+                          alt={`Preview ${index + 1}`}
+                          onClick={() => openMediaModal(index)}
+                          style={{ cursor: "pointer" }}
+                        />
+                      ) : (
+                        <div className="video-preview" onClick={() => openMediaModal(index)}>
+                          {mediaItem.type === 'file' ? (
+                            <video
+                              src={mediaItem.preview}
+                              style={{ cursor: "pointer" }}
+                              muted
+                            />
+                          ) : (
+                            <div className="video-url-preview">
+                              <MdVideoLibrary size={48} />
+                              <span>Video URL</span>
+                            </div>
+                          )}
+                          <div className="video-overlay">
+                            <MdVideoLibrary size={24} />
+                            <span>{formatFileSize(mediaItem.size || 0)}</span>
+                          </div>
+                        </div>
+                      )}
                       <button
                         type="button"
-                        className="remove-image-btn"
-                        onClick={() => removeImage(image.id)}
-                        title="Remove image"
+                        className="remove-media-btn"
+                        onClick={() => removeMedia(mediaItem.id)}
+                        title="Remove media"
                       >
                         <MdClose />
                       </button>
-                      <div className="image-info">
-                        <small>{image.name}</small>
-                        {image.type === 'file' && image.size && (
-                          <small>{(image.size / 1024 / 1024).toFixed(1)}MB</small>
+                      <div className="media-info">
+                        <small>{mediaItem.name}</small>
+                        {mediaItem.type === 'file' && mediaItem.size && (
+                          <small>{formatFileSize(mediaItem.size)}</small>
+                        )}
+                        {mediaItem.mediaType === 'video' && (
+                          <small className="video-badge">🎬 Video</small>
                         )}
                       </div>
                     </div>
                   ))}
                   
-                  {/* Add more images button */}
-                  {images.length < imageLimit && (
-                    <label htmlFor="imagesUpload" className="add-more-images">
+                  {/* Add more media button */}
+                  {media.length < mediaLimit && (
+                    <label htmlFor="mediaUpload" className="add-more-media">
                       <MdAdd />
                       <span>Add More</span>
                     </label>
@@ -899,11 +1079,12 @@ function PostNow() {
                     📤 Posting to {selectedPlatforms.length} platforms
                   </span>
                 )}
-                {images.length > 0 && (
+                {media.length > 0 && (
                   <span
                     style={{ marginLeft: "10px", color: "var(--success-color)" }}
                   >
-                    📸 {images.length} image{images.length > 1 ? 's' : ''}
+                    📁 {media.length} file{media.length > 1 ? 's' : ''} 
+                    ({media.filter(item => item.mediaType === 'image').length} images, {media.filter(item => item.mediaType === 'video').length} videos)
                   </span>
                 )}
               </div>
@@ -911,12 +1092,13 @@ function PostNow() {
                 type="submit"
                 className="post-now-btn"
                 disabled={
-                  ((!postContent.trim() && images.length === 0) ||
+                  ((!postContent.trim() && media.length === 0) ||
                   selectedPlatforms.length === 0 ||
                   isPosting ||
                   connectedPlatforms.length === 0 ||
                   isOverLimit ||
-                  images.length > imageLimit)
+                  media.length > mediaLimit ||
+                  (media.some(item => item.mediaType === 'video') && !isVideoSupported()))
                 }
               >
                 <MdSend />
@@ -931,35 +1113,44 @@ function PostNow() {
         </form>
       </div>
 
-      {/* Image Modal with navigation */}
-      {showImageModal && images.length > 0 && (
-        <div className="image-modal-overlay" onClick={closeImageModal}>
+      {/* Media Modal with navigation */}
+      {showMediaModal && media.length > 0 && (
+        <div className="media-modal-overlay" onClick={closeMediaModal}>
           <div
-            className="image-modal-content"
+            className="media-modal-content"
             onClick={(e) => e.stopPropagation()}
           >
-            <img src={images[modalImageIndex]?.preview} alt="Full size preview" />
+            {media[modalMediaIndex]?.mediaType === 'image' ? (
+              <img src={media[modalMediaIndex]?.preview} alt="Full size preview" />
+            ) : (
+              <video 
+                src={media[modalMediaIndex]?.preview} 
+                controls 
+                autoPlay={false}
+                style={{ maxWidth: '100%', maxHeight: '80vh' }}
+              />
+            )}
             
-            {images.length > 1 && (
+            {media.length > 1 && (
               <div className="modal-navigation">
                 <button
                   className="nav-btn prev"
-                  onClick={() => setModalImageIndex(prev => 
-                    prev === 0 ? images.length - 1 : prev - 1
+                  onClick={() => setModalMediaIndex(prev => 
+                    prev === 0 ? media.length - 1 : prev - 1
                   )}
-                  title="Previous image"
+                  title="Previous media"
                 >
                   ‹
                 </button>
-                <span className="image-counter">
-                  {modalImageIndex + 1} of {images.length}
+                <span className="media-counter">
+                  {modalMediaIndex + 1} of {media.length}
                 </span>
                 <button
                   className="nav-btn next"
-                  onClick={() => setModalImageIndex(prev => 
-                    prev === images.length - 1 ? 0 : prev + 1
+                  onClick={() => setModalMediaIndex(prev => 
+                    prev === media.length - 1 ? 0 : prev + 1
                   )}
-                  title="Next image"
+                  title="Next media"
                 >
                   ›
                 </button>
@@ -967,8 +1158,8 @@ function PostNow() {
             )}
             
             <button
-              className="image-modal-close"
-              onClick={closeImageModal}
+              className="media-modal-close"
+              onClick={closeMediaModal}
               title="Close preview"
             >
               <MdClose />
@@ -995,7 +1186,7 @@ function PostNow() {
             >
               {selectedPlatforms.join(", ")}
             </div>
-            {images.length > 0 && (
+            {media.length > 0 && (
               <div
                 style={{
                   fontSize: "12px",
@@ -1003,7 +1194,8 @@ function PostNow() {
                   marginTop: "5px",
                 }}
               >
-                📸 Uploading {images.length} image{images.length > 1 ? 's' : ''}
+                📁 Uploading {media.length} file{media.length > 1 ? 's' : ''} 
+                ({media.filter(item => item.mediaType === 'image').length} images, {media.filter(item => item.mediaType === 'video').length} videos)
               </div>
             )}
             <div
