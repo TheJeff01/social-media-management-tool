@@ -5,9 +5,11 @@ import "./Login.css";
 function Login({ onLogin }) {
   const [signState, setSignState] = useState("Sign In");
   const [formData, setFormData] = useState({
-    name: "",
+    username: "",
     email: "",
-    password: ""
+    password: "",
+    firstName: "",
+    lastName: ""
   });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
@@ -18,7 +20,7 @@ function Login({ onLogin }) {
       prevState === "Sign In" ? "Sign Up" : "Sign In"
     );
     setErrors({});
-    setFormData({ name: "", email: "", password: "" });
+    setFormData({ username: "", email: "", password: "", firstName: "", lastName: "" });
   };
 
   const handleInputChange = (e) => {
@@ -53,12 +55,20 @@ function Login({ onLogin }) {
       newErrors.password = "Password must be at least 6 characters";
     }
 
-    // Name validation for sign up
+    // Additional validation for sign up
     if (signState === "Sign Up") {
-      if (!formData.name) {
-        newErrors.name = "Name is required";
-      } else if (formData.name.length < 2) {
-        newErrors.name = "Name must be at least 2 characters";
+      if (!formData.username) {
+        newErrors.username = "Username is required";
+      } else if (formData.username.length < 3) {
+        newErrors.username = "Username must be at least 3 characters";
+      }
+
+      if (!formData.firstName) {
+        newErrors.firstName = "First name is required";
+      }
+
+      if (!formData.lastName) {
+        newErrors.lastName = "Last name is required";
       }
     }
 
@@ -74,75 +84,100 @@ function Login({ onLogin }) {
     }
 
     setIsLoading(true);
+    setErrors({});
 
     try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
       if (signState === "Sign Up") {
-        // Handle Sign Up
-        const existingUsers = JSON.parse(sessionStorage.getItem('registeredUsers') || '[]');
-        
-        // Check if user already exists
-        const userExists = existingUsers.find(user => user.email === formData.email);
-        if (userExists) {
-          setErrors({ email: "User with this email already exists" });
-          setIsLoading(false);
+        // Handle Sign Up - Call backend API
+        const response = await fetch('http://localhost:3001/auth/register', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            username: formData.username,
+            email: formData.email,
+            password: formData.password,
+            firstName: formData.firstName,
+            lastName: formData.lastName
+          })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          if (data.error === 'User already exists') {
+            setErrors({ email: "User with this email already exists" });
+          } else if (data.error === 'Username already taken') {
+            setErrors({ username: "Username is already taken" });
+          } else {
+            setErrors({ general: data.message || "Registration failed. Please try again." });
+          }
           return;
         }
 
-        // Register new user
-        const newUser = {
-          id: Date.now(),
-          name: formData.name,
-          email: formData.email,
-          password: formData.password, // In real app, this would be hashed
-          createdAt: new Date().toISOString()
-        };
-
-        existingUsers.push(newUser);
-        sessionStorage.setItem('registeredUsers', JSON.stringify(existingUsers));
-
         // Auto login after successful registration
         onLogin({
-          id: newUser.id,
-          name: newUser.name,
-          email: newUser.email
+          id: data.user._id,
+          username: data.user.username,
+          email: data.user.email,
+          firstName: data.user.firstName,
+          lastName: data.user.lastName,
+          token: data.token
         });
+
+        // Store token in localStorage
+        localStorage.setItem('authToken', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
 
         navigate("/");
 
       } else {
-        // Handle Sign In
-        const existingUsers = JSON.parse(sessionStorage.getItem('registeredUsers') || '[]');
-        
-        // Find user with matching email and password
-        const user = existingUsers.find(
-          user => user.email === formData.email && user.password === formData.password
-        );
+        // Handle Sign In - Call backend API
+        const response = await fetch('http://localhost:3001/auth/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: formData.email,
+            password: formData.password
+          })
+        });
 
-        if (user) {
-          // Successful login
-          onLogin({
-            id: user.id,
-            name: user.name,
-            email: user.email
-          });
-          navigate("/");
-        } else {
-          // Check if email exists but password is wrong
-          const emailExists = existingUsers.find(user => user.email === formData.email);
-          if (emailExists) {
+        const data = await response.json();
+
+        if (!response.ok) {
+          if (data.error === 'Invalid credentials') {
             setErrors({ password: "Incorrect password" });
-          } else {
+          } else if (data.error === 'User not found') {
             setErrors({ email: "No account found with this email" });
+          } else {
+            setErrors({ general: data.message || "Login failed. Please try again." });
           }
+          return;
         }
+
+        // Successful login
+        onLogin({
+          id: data.user._id,
+          username: data.user.username,
+          email: data.user.email,
+          firstName: data.user.firstName,
+          lastName: data.user.lastName,
+          token: data.token
+        });
+
+        // Store token in localStorage
+        localStorage.setItem('authToken', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+
+        navigate("/");
       }
 
     } catch (error) {
       console.error('Authentication error:', error);
-      setErrors({ general: "Something went wrong. Please try again." });
+      setErrors({ general: "Network error. Please check your connection and try again." });
     } finally {
       setIsLoading(false);
     }
@@ -168,28 +203,76 @@ function Login({ onLogin }) {
           )}
 
           {signState === "Sign Up" && (
-            <div>
-              <input 
-                type="text" 
-                name="name"
-                placeholder="Your full name" 
-                value={formData.name}
-                onChange={handleInputChange}
-                style={{
-                  borderColor: errors.name ? '#ef4444' : undefined
-                }}
-              />
-              {errors.name && (
-                <div style={{ 
-                  color: '#ef4444', 
-                  fontSize: '14px', 
-                  marginTop: '5px',
-                  marginLeft: '5px' 
-                }}>
-                  {errors.name}
-                </div>
-              )}
-            </div>
+            <>
+              <div>
+                <input 
+                  type="text" 
+                  name="username"
+                  placeholder="Username" 
+                  value={formData.username}
+                  onChange={handleInputChange}
+                  style={{
+                    borderColor: errors.username ? '#ef4444' : undefined
+                  }}
+                />
+                {errors.username && (
+                  <div style={{ 
+                    color: '#ef4444', 
+                    fontSize: '14px', 
+                    marginTop: '5px',
+                    marginLeft: '5px' 
+                  }}>
+                    {errors.username}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <input 
+                  type="text" 
+                  name="firstName"
+                  placeholder="First Name" 
+                  value={formData.firstName}
+                  onChange={handleInputChange}
+                  style={{
+                    borderColor: errors.firstName ? '#ef4444' : undefined
+                  }}
+                />
+                {errors.firstName && (
+                  <div style={{ 
+                    color: '#ef4444', 
+                    fontSize: '14px', 
+                    marginTop: '5px',
+                    marginLeft: '5px' 
+                  }}>
+                    {errors.firstName}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <input 
+                  type="text" 
+                  name="lastName"
+                  placeholder="Last Name" 
+                  value={formData.lastName}
+                  onChange={handleInputChange}
+                  style={{
+                    borderColor: errors.lastName ? '#ef4444' : undefined
+                  }}
+                />
+                {errors.lastName && (
+                  <div style={{ 
+                    color: '#ef4444', 
+                    fontSize: '14px', 
+                    marginTop: '5px',
+                    marginLeft: '5px' 
+                  }}>
+                    {errors.lastName}
+                  </div>
+                )}
+              </div>
+            </>
           )}
 
           <div>
@@ -243,7 +326,7 @@ function Login({ onLogin }) {
           <div className="form-switch">
             {signState === "Sign In" ? (
               <p>
-                New to JeffApp? <span onClick={toggleSignState}>Sign Up</span>
+                New to PostBridge? <span onClick={toggleSignState}>Sign Up</span>
               </p>
             ) : (
               <p>

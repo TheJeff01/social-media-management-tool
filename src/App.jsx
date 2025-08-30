@@ -12,34 +12,41 @@ import Accounts from "./pages/Accounts/Accounts";
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Check authentication status on app load
   useEffect(() => {
     const checkAuth = () => {
-      const authData = sessionStorage.getItem('userAuth');
-      if (authData) {
+      const authToken = localStorage.getItem('authToken');
+      const userData = localStorage.getItem('user');
+      
+      if (authToken && userData) {
         try {
-          const parsedAuth = JSON.parse(authData);
-          // Check if token is still valid (not expired)
-          if (parsedAuth.isLoggedIn && parsedAuth.timestamp) {
-            const now = Date.now();
-            const loginTime = parsedAuth.timestamp;
-            const sessionDuration = 24 * 60 * 60 * 1000; // 24 hours
-            
-            if (now - loginTime < sessionDuration) {
-              setIsAuthenticated(true);
-            } else {
-              // Session expired, clear storage
-              sessionStorage.removeItem('userAuth');
-              setIsAuthenticated(false);
-            }
+          const parsedUser = JSON.parse(userData);
+          
+          // Verify token with backend (optional - for production)
+          // For now, we'll just check if the token exists
+          if (authToken && parsedUser) {
+            setIsAuthenticated(true);
+            setUser(parsedUser);
+          } else {
+            // Clear invalid data
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('user');
+            setIsAuthenticated(false);
+            setUser(null);
           }
         } catch (error) {
-          console.error('Error parsing auth data:', error);
-          sessionStorage.removeItem('userAuth');
+          console.error('Error parsing user data:', error);
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('user');
           setIsAuthenticated(false);
+          setUser(null);
         }
+      } else {
+        setIsAuthenticated(false);
+        setUser(null);
       }
       setIsLoading(false);
     };
@@ -80,26 +87,42 @@ function App() {
 
   // Login handler
   const handleLogin = (userData) => {
-    const authData = {
-      isLoggedIn: true,
-      user: userData,
-      timestamp: Date.now()
-    };
-    
-    sessionStorage.setItem('userAuth', JSON.stringify(authData));
+    setUser(userData);
     setIsAuthenticated(true);
+    // Token and user data are already stored in localStorage by Login component
   };
 
   // Logout handler
-  const handleLogout = () => {
-    sessionStorage.removeItem('userAuth');
-    // Also clear other session data if needed
-    sessionStorage.removeItem('selectedPlatforms');
-    sessionStorage.removeItem('postContent');
-    sessionStorage.removeItem('scheduledDate');
-    sessionStorage.removeItem('scheduledTime');
-    sessionStorage.removeItem('scheduledPosts');
-    setIsAuthenticated(false);
+  const handleLogout = async () => {
+    try {
+      // Call logout endpoint to invalidate token on server (optional)
+      const authToken = localStorage.getItem('authToken');
+      if (authToken) {
+        await fetch('http://localhost:3001/auth/logout', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'Content-Type': 'application/json'
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      // Clear all authentication data
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('user');
+      
+      // Clear session data
+      sessionStorage.removeItem('selectedPlatforms');
+      sessionStorage.removeItem('postContent');
+      sessionStorage.removeItem('scheduledDate');
+      sessionStorage.removeItem('scheduledTime');
+      sessionStorage.removeItem('scheduledPosts');
+      
+      setIsAuthenticated(false);
+      setUser(null);
+    }
   };
 
   return (
@@ -123,7 +146,7 @@ function App() {
           <Route path="/linkedin/callback" element={<Navigate to="/accounts" replace />} />
           
           {/* Protected routes that need the layout (sidebar + header) */}
-          <Route path="/" element={<ProtectedRoute><Layout onLogout={handleLogout} /></ProtectedRoute>}>
+          <Route path="/" element={<ProtectedRoute><Layout onLogout={handleLogout} user={user} /></ProtectedRoute>}>
             <Route index element={<Dashboard />} />
             <Route path="scheduler" element={<Scheduler />} />
             <Route path="accounts" element={<Accounts />} />

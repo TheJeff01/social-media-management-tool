@@ -8,24 +8,29 @@ import Sidebar from "./components/sidebar/Sidebar";
 import ThemeToggle from "./ThemeToggle";
 import { useConfirm } from "./components/Confirm/ConfirmProvider";
 
-function Layout({ onLogout }) {
+function Layout({ onLogout, user }) {
   const location = useLocation();
-  const [user, setUser] = useState(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const { confirm } = useConfirm();
 
-  // Get user data from session storage
+  // Get user data from localStorage if not passed as prop
+  const [currentUser, setCurrentUser] = useState(user);
+  
   useEffect(() => {
-    const authData = sessionStorage.getItem('userAuth');
-    if (authData) {
-      try {
-        const parsedAuth = JSON.parse(authData);
-        setUser(parsedAuth.user);
-      } catch (error) {
-        console.error('Error parsing user data:', error);
+    if (!user) {
+      const userData = localStorage.getItem('user');
+      if (userData) {
+        try {
+          const parsedUser = JSON.parse(userData);
+          setCurrentUser(parsedUser);
+        } catch (error) {
+          console.error('Error parsing user data:', error);
+        }
       }
+    } else {
+      setCurrentUser(user);
     }
-  }, []);
+  }, [user]);
 
   // Get page title based on current route
   const getPageTitle = () => {
@@ -69,6 +74,21 @@ function Layout({ onLogout }) {
     return () => document.removeEventListener('click', handleClickOutside);
   }, [showUserMenu]);
 
+  // Get user display name
+  const getUserDisplayName = () => {
+    if (!currentUser) return 'User';
+    
+    if (currentUser.firstName && currentUser.lastName) {
+      return `${currentUser.firstName} ${currentUser.lastName}`;
+    } else if (currentUser.username) {
+      return currentUser.username;
+    } else if (currentUser.name) {
+      return currentUser.name; // Fallback for old data structure
+    }
+    
+    return 'User';
+  };
+
   return (
     <div className="app-wrapper">
       <div className="layout">
@@ -78,14 +98,14 @@ function Layout({ onLogout }) {
           <div className="app-header">
             <div>
               <h1>{getPageTitle()}</h1>
-              {user && (
+              {currentUser && (
                 <p style={{
                   color: 'var(--text-muted)',
                   fontSize: '14px',
                   fontWeight: '500',
                   marginTop: '5px'
                 }}>
-                  Welcome back, {user.name}!
+                  Welcome back, {getUserDisplayName()}!
                 </p>
               )}
             </div>
@@ -122,7 +142,7 @@ function Layout({ onLogout }) {
                   cursor: 'pointer'
                 }}>
                   <FaRegCircleUser />
-                  {user && (
+                  {currentUser && (
                     <div style={{
                       position: 'absolute',
                       top: '-8px',
@@ -151,7 +171,7 @@ function Layout({ onLogout }) {
                     zIndex: '1000',
                     animation: 'fadeInDown 0.3s ease'
                   }}>
-                    {user && (
+                    {currentUser && (
                       <div style={{ 
                         marginBottom: '15px',
                         paddingBottom: '15px',
@@ -162,13 +182,13 @@ function Layout({ onLogout }) {
                           fontWeight: '600',
                           marginBottom: '5px'
                         }}>
-                          {user.name}
+                          {currentUser.name}
                         </div>
                         <div style={{
                           color: 'var(--text-muted)',
                           fontSize: '14px'
                         }}>
-                          {user.email}
+                          {currentUser.email}
                         </div>
                       </div>
                     )}
