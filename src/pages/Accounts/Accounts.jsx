@@ -29,106 +29,77 @@ function Accounts() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedPlatform, setSelectedPlatform] = useState(null);
   const [connectedAccounts, setConnectedAccounts] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const { showToast } = useToast();
   const { confirm } = useConfirm();
 
-  // Load existing accounts from sessionStorage on mount
+  // Load existing accounts from database on mount
   useEffect(() => {
-    const loadExistingAccounts = () => {
-      const accounts = [];
-
-      // Check Facebook
-      const fbPageId = sessionStorage.getItem("fb_page_id");
-      const fbPageToken = sessionStorage.getItem("fb_page_token");
-      const fbPageName = sessionStorage.getItem("fb_page_name");
-
-      if (fbPageId && fbPageToken) {
-        accounts.push({
-          id: "facebook_" + fbPageId,
-          platform: "Facebook",
-          username: fbPageName || "Facebook Page",
-          displayName: fbPageName || "Facebook Page",
-          followers: sessionStorage.getItem("fb_page_followers") || "—",
-          avatar: sessionStorage.getItem("fb_page_avatar") || null,
-          status: "active",
-          lastSync: "Connected",
-          isPublic: true,
-        });
-      }
-
-      // Check Twitter
-      const twitterToken = sessionStorage.getItem("twitter_access_token");
-      const twitterUsername = sessionStorage.getItem("twitter_username");
-      const twitterDisplayName = sessionStorage.getItem("twitter_display_name");
-      const twitterUserId = sessionStorage.getItem("twitter_user_id");
-
-      if (twitterToken && twitterUserId) {
-        accounts.push({
-          id: "twitter_" + twitterUserId,
-          platform: "Twitter",
-          username: twitterUsername || "@twitter_user",
-          displayName: twitterDisplayName || "Twitter User",
-          followers: sessionStorage.getItem("twitter_followers_count") || "—",
-          avatar: sessionStorage.getItem("twitter_profile_image") || null,
-          status: "active",
-          lastSync: "Connected",
-          isPublic: true,
-        });
-      }
-
-      // Check LinkedIn
-      const linkedinToken = sessionStorage.getItem("linkedin_access_token");
-      const linkedinUsername = sessionStorage.getItem("linkedin_username");
-      const linkedinDisplayName = sessionStorage.getItem(
-        "linkedin_display_name"
-      );
-      const linkedinUserId = sessionStorage.getItem("linkedin_user_id");
-
-      if (linkedinToken && linkedinUserId) {
-        accounts.push({
-          id: "linkedin_" + linkedinUserId,
-          platform: "LinkedIn",
-          username: linkedinUsername || "LinkedIn User",
-          displayName: linkedinDisplayName || "LinkedIn User",
-          followers:
-            sessionStorage.getItem("linkedin_connections_count") || "—",
-          avatar: sessionStorage.getItem("linkedin_profile_image") || null,
-          status: "active",
-          lastSync: "Connected",
-          isPublic: true,
-        });
-      }
-      // Check Instagram (Graph API)
-      const igUserId = sessionStorage.getItem("instagram_user_id");
-      const igUsername = sessionStorage.getItem("instagram_username");
-      const igDisplayName = sessionStorage.getItem("instagram_display_name");
-      const igProfileImage = sessionStorage.getItem("instagram_profile_image");
-      const igFollowers = sessionStorage.getItem("instagram_followers_count");
-      const igMediaCount = sessionStorage.getItem("instagram_media_count");
-      const igPageName = sessionStorage.getItem("instagram_facebook_page_name");
-
-      if (igUserId) {
-        accounts.push({
-          id: "instagram_" + igUserId,
-          platform: "Instagram",
-          username: igUsername || "@instagram_user",
-          displayName: igDisplayName || "Instagram User",
-          followers: igFollowers || "—",
-          avatar: igProfileImage || null,
-          status: "active",
-          lastSync: "Connected",
-          isPublic: true,
-          accountType: "BUSINESS",
-          mediaCount: parseInt(igMediaCount) || 0,
-          facebookPageName: igPageName || "",
-        });
-      }
-
-      setConnectedAccounts(accounts);
-    };
-
-    loadExistingAccounts();
+    loadConnectedAccounts();
   }, []);
+
+  const loadConnectedAccounts = async () => {
+    try {
+      const authToken = localStorage.getItem('authToken');
+      if (!authToken) {
+        setIsLoading(false);
+        return;
+      }
+
+      const response = await fetch(`${BACKEND_URL}/auth/social-accounts`, {
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const accounts = data.accounts.map(account => {
+          // Map platform names correctly
+          let platformName;
+          switch (account.platform) {
+            case 'twitter':
+              platformName = 'Twitter';
+              break;
+            case 'facebook':
+              platformName = 'Facebook';
+              break;
+            case 'instagram':
+              platformName = 'Instagram';
+              break;
+            case 'linkedin':
+              platformName = 'LinkedIn';
+              break;
+            default:
+              platformName = account.platform.charAt(0).toUpperCase() + account.platform.slice(1);
+          }
+          
+          return {
+            id: account._id,
+            platform: platformName,
+            username: account.platform === 'twitter' ? `@${account.accountName}` : account.accountName,
+            displayName: account.accountName,
+            followers: "—", // We'll need to fetch this separately if needed
+            avatar: null, // We'll need to fetch this separately if needed
+            status: account.isActive ? "active" : "inactive",
+            lastSync: new Date(account.lastUsed).toLocaleDateString(),
+            isPublic: true,
+            accountId: account.accountId,
+            accessToken: account.accessToken // For immediate use
+          };
+        });
+        
+        setConnectedAccounts(accounts);
+      } else {
+        console.error('Failed to load connected accounts');
+      }
+    } catch (error) {
+      console.error('Error loading connected accounts:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Available platforms
   const availablePlatforms = [
@@ -205,62 +176,21 @@ function Accounts() {
 
           if (event.data.success && event.data.sessionId) {
             try {
+              const authToken = localStorage.getItem('authToken');
               const response = await fetch(
-                `${BACKEND_URL}/auth/twitter/user/${event.data.sessionId}`
+                `${BACKEND_URL}/auth/twitter/user/${event.data.sessionId}`,
+                {
+                  headers: {
+                    'Authorization': `Bearer ${authToken}`,
+                    'Content-Type': 'application/json'
+                  }
+                }
               );
               const userData = await response.json();
 
               if (response.ok) {
-                // Store Twitter data in sessionStorage
-                sessionStorage.setItem(
-                  "twitter_access_token",
-                  userData.accessToken
-                );
-                sessionStorage.setItem("twitter_user_id", userData.user.id);
-                sessionStorage.setItem(
-                  "twitter_username",
-                  `@${userData.user.username}`
-                );
-                sessionStorage.setItem(
-                  "twitter_display_name",
-                  userData.user.name
-                );
-
-                if (userData.user.public_metrics?.followers_count) {
-                  sessionStorage.setItem(
-                    "twitter_followers_count",
-                    userData.user.public_metrics.followers_count.toLocaleString()
-                  );
-                }
-
-                if (userData.user.profile_image_url) {
-                  sessionStorage.setItem(
-                    "twitter_profile_image",
-                    userData.user.profile_image_url
-                  );
-                }
-
-                // Add to connected accounts
-                const twitterAccount = {
-                  id: "twitter_" + userData.user.id,
-                  platform: "Twitter",
-                  username: `@${userData.user.username}`,
-                  displayName: userData.user.name,
-                  followers:
-                    userData.user.public_metrics?.followers_count?.toLocaleString() ||
-                    "—",
-                  avatar: userData.user.profile_image_url || null,
-                  status: "active",
-                  lastSync: "Just now",
-                  isPublic: true,
-                };
-
-                setConnectedAccounts((prev) => {
-                  const filtered = prev.filter(
-                    (acc) => acc.platform !== "Twitter"
-                  );
-                  return [...filtered, twitterAccount];
-                });
+                // Reload connected accounts from database
+                await loadConnectedAccounts();
 
                 showToast({
                   message: "✅ Twitter connected successfully!",
@@ -349,94 +279,26 @@ function Accounts() {
 
           if (event.data.success && event.data.sessionId) {
             try {
+              const authToken = localStorage.getItem('authToken');
               const response = await fetch(
-                `${BACKEND_URL}/auth/facebook/user/${event.data.sessionId}`
+                `${BACKEND_URL}/auth/facebook/user/${event.data.sessionId}`,
+                {
+                  headers: {
+                    'Authorization': `Bearer ${authToken}`,
+                    'Content-Type': 'application/json'
+                  }
+                }
               );
               const userData = await response.json();
 
               if (response.ok) {
-                const user = userData.user;
-                const pages = userData.pages || [];
+                // Reload connected accounts from database
+                await loadConnectedAccounts();
 
-                // Store Facebook user data
-                sessionStorage.setItem(
-                  "facebook_access_token",
-                  userData.accessToken
-                );
-                sessionStorage.setItem("facebook_user_id", user.id);
-                sessionStorage.setItem("facebook_user_name", user.name);
-
-                if (user.picture?.data?.url) {
-                  sessionStorage.setItem(
-                    "facebook_profile_image",
-                    user.picture.data.url
-                  );
-                }
-
-                // If user has pages, use the first page for posting
-                if (pages.length > 0) {
-                  const page = pages[0];
-                  sessionStorage.setItem("fb_page_id", page.id);
-                  sessionStorage.setItem("fb_page_token", page.access_token);
-                  sessionStorage.setItem("fb_page_name", page.name);
-
-                  if (page.picture?.data?.url) {
-                    sessionStorage.setItem(
-                      "fb_page_avatar",
-                      page.picture.data.url
-                    );
-                  }
-
-                  // Add page account
-                  const facebookAccount = {
-                    id: "facebook_" + page.id,
-                    platform: "Facebook",
-                    username: page.name,
-                    displayName: page.name,
-                    followers: "—",
-                    avatar: page.picture?.data?.url || null,
-                    status: "active",
-                    lastSync: "Just now",
-                    isPublic: true,
-                  };
-
-                  setConnectedAccounts((prev) => {
-                    const filtered = prev.filter(
-                      (acc) => acc.platform !== "Facebook"
-                    );
-                    return [...filtered, facebookAccount];
-                  });
-
-                  showToast({
-                    message: `✅ Facebook Page "${page.name}" connected successfully!`,
-                    type: "success",
-                  });
-                } else {
-                  // No pages, use personal profile
-                  const facebookAccount = {
-                    id: "facebook_" + user.id,
-                    platform: "Facebook",
-                    username: user.name,
-                    displayName: user.name,
-                    followers: "—",
-                    avatar: user.picture?.data?.url || null,
-                    status: "active",
-                    lastSync: "Just now",
-                    isPublic: true,
-                  };
-
-                  setConnectedAccounts((prev) => {
-                    const filtered = prev.filter(
-                      (acc) => acc.platform !== "Facebook"
-                    );
-                    return [...filtered, facebookAccount];
-                  });
-
-                  showToast({
-                    message: "✅ Facebook connected successfully!",
-                    type: "success",
-                  });
-                }
+                showToast({
+                  message: "✅ Facebook connected successfully!",
+                  type: "success",
+                });
               } else {
                 throw new Error(
                   userData.error || "Failed to get Facebook user data"
@@ -520,66 +382,21 @@ function Accounts() {
 
           if (event.data.success && event.data.sessionId) {
             try {
+              const authToken = localStorage.getItem('authToken');
               const response = await fetch(
-                `${BACKEND_URL}/auth/linkedin/user/${event.data.sessionId}`
+                `${BACKEND_URL}/auth/linkedin/user/${event.data.sessionId}`,
+                {
+                  headers: {
+                    'Authorization': `Bearer ${authToken}`,
+                    'Content-Type': 'application/json'
+                  }
+                }
               );
               const userData = await response.json();
 
               if (response.ok) {
-                console.log("LinkedIn user data received:", userData);
-
-                // Store LinkedIn data in sessionStorage
-                sessionStorage.setItem(
-                  "linkedin_access_token",
-                  userData.accessToken
-                );
-                sessionStorage.setItem("linkedin_user_id", userData.user.id);
-
-                // Use the correct property names from the backend
-                const fullName =
-                  userData.user.name ||
-                  `${userData.user.firstName || ""} ${
-                    userData.user.lastName || ""
-                  }`.trim();
-
-                sessionStorage.setItem("linkedin_username", fullName);
-                sessionStorage.setItem("linkedin_display_name", fullName);
-
-                // Store profile image if available
-                if (userData.user.picture) {
-                  sessionStorage.setItem(
-                    "linkedin_profile_image",
-                    userData.user.picture
-                  );
-                }
-
-                // Store email if available
-                if (userData.user.email) {
-                  sessionStorage.setItem("linkedin_email", userData.user.email);
-                }
-
-                // Note: LinkedIn API doesn't provide connection count in basic profile
-                sessionStorage.setItem("linkedin_connections_count", "—");
-
-                // Add to connected accounts
-                const linkedinAccount = {
-                  id: "linkedin_" + userData.user.id,
-                  platform: "LinkedIn",
-                  username: fullName,
-                  displayName: fullName,
-                  followers: "—", // LinkedIn connections require special permissions
-                  avatar: userData.user.picture || null,
-                  status: "active",
-                  lastSync: "Just now",
-                  isPublic: true,
-                };
-
-                setConnectedAccounts((prev) => {
-                  const filtered = prev.filter(
-                    (acc) => acc.platform !== "LinkedIn"
-                  );
-                  return [...filtered, linkedinAccount];
-                });
+                // Reload connected accounts from database
+                await loadConnectedAccounts();
 
                 showToast({
                   message: "✅ LinkedIn connected successfully!",
@@ -663,83 +480,24 @@ function Accounts() {
 
           if (event.data.success && event.data.sessionId) {
             try {
+              const authToken = localStorage.getItem('authToken');
               const response = await fetch(
-                `${BACKEND_URL}/auth/instagram/user/${event.data.sessionId}`
+                `${BACKEND_URL}/auth/instagram/user/${event.data.sessionId}`,
+                {
+                  headers: {
+                    'Authorization': `Bearer ${authToken}`,
+                    'Content-Type': 'application/json'
+                  }
+                }
               );
               const userData = await response.json();
 
               if (response.ok) {
-                // ✅ Pull the actual Instagram account from backend
-                const igAccount = userData.instagramAccounts[0];
-                if (!igAccount)
-                  throw new Error("No Instagram business account linked.");
-
-                // Save Instagram details
-                // Store page access token needed for posting
-                if (igAccount.page_access_token) {
-                  sessionStorage.setItem(
-                    "instagram_page_access_token",
-                    igAccount.page_access_token
-                  );
-                } else if (userData.accessToken) {
-                  // Fallback to overall access token if specific page token provided separately
-                  sessionStorage.setItem(
-                    "instagram_page_access_token",
-                    userData.accessToken
-                  );
-                }
-                sessionStorage.setItem("instagram_user_id", igAccount.id);
-                sessionStorage.setItem(
-                  "instagram_username",
-                  `@${igAccount.username}`
-                );
-                sessionStorage.setItem(
-                  "instagram_display_name",
-                  igAccount.name || igAccount.username
-                );
-                sessionStorage.setItem(
-                  "instagram_profile_image",
-                  igAccount.profile_picture_url
-                );
-                sessionStorage.setItem(
-                  "instagram_followers_count",
-                  igAccount.followers_count?.toLocaleString() || "—"
-                );
-                sessionStorage.setItem(
-                  "instagram_media_count",
-                  igAccount.media_count?.toString() || "0"
-                );
-                sessionStorage.setItem("instagram_account_type", "BUSINESS");
-                sessionStorage.setItem(
-                  "instagram_facebook_page_name",
-                  igAccount.page_name
-                );
-
-                const instagramAccount = {
-                  id: "instagram_" + igAccount.id,
-                  platform: "Instagram",
-                  username: `@${igAccount.username}`,
-                  displayName: igAccount.name || igAccount.username,
-                  followers: igAccount.followers_count?.toLocaleString() || "—",
-                  avatar: igAccount.profile_picture_url || null,
-                  status: "active",
-                  lastSync: "Just now",
-                  isPublic: true,
-                  accountType: "BUSINESS",
-                  mediaCount: igAccount.media_count || 0,
-                  canPost: true,
-                  facebookPageName: igAccount.page_name,
-                };
-
-                setConnectedAccounts((prev) => {
-                  const filtered = prev.filter(
-                    (acc) => acc.platform !== "Instagram"
-                  );
-                  return [...filtered, instagramAccount];
-                });
+                // Reload connected accounts from database
+                await loadConnectedAccounts();
 
                 showToast({
-                  message: `✅ Instagram (@${igAccount.username}) connected successfully via ${igAccount.page_name}!`,
+                  message: "✅ Instagram connected successfully!",
                   type: "success",
                 });
               } else {
@@ -793,7 +551,7 @@ function Accounts() {
     setShowAddModal(true);
   };
 
-  // Updated handleDisconnectAccount to handle Instagram Graph API tokens
+  // Updated handleDisconnectAccount to remove from database
   const handleDisconnectAccount = async (accountId) => {
     const account = connectedAccounts.find((acc) => acc.id === accountId);
     if (!account) return;
@@ -807,62 +565,49 @@ function Accounts() {
     });
 
     if (ok) {
-      // Remove from connected accounts
-      setConnectedAccounts((prev) =>
-        prev.filter((acc) => acc.id !== accountId)
-      );
+      try {
+        const authToken = localStorage.getItem('authToken');
+        const response = await fetch(`${BACKEND_URL}/auth/social-accounts/${accountId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'Content-Type': 'application/json'
+          }
+        });
 
-      // Clear session storage for this platform
-      const platform = account.platform.toLowerCase();
-      const keysToRemove = [
-        `${platform}_access_token`,
-        `${platform}_page_access_token`, // Instagram Graph API specific
-        `${platform}_refresh_token`,
-        `${platform}_user_id`,
-        `${platform}_page_id`, // Instagram Graph API specific
-        `${platform}_username`,
-        `${platform}_display_name`,
-        `${platform}_followers_count`,
-        `${platform}_profile_image`,
-        `${platform}_connections_count`,
-        `${platform}_user_name`,
-        `${platform}_account_type`,
-        `${platform}_media_count`,
-        `${platform}_token_type`,
-        `${platform}_expires_in`,
-        `${platform}_facebook_page_id`, // Instagram Graph API specific
-        `${platform}_facebook_page_name`, // Instagram Graph API specific
-      ];
+        if (response.ok) {
+          // Remove from connected accounts
+          setConnectedAccounts((prev) =>
+            prev.filter((acc) => acc.id !== accountId)
+          );
 
-      // Special cases for platform-specific keys
-      if (platform === "facebook") {
-        keysToRemove.push(
-          "fb_page_id",
-          "fb_page_token",
-          "fb_page_name",
-          "fb_page_avatar",
-          "fb_page_followers"
-        );
+          showToast({
+            message: `${account.platform} account disconnected`,
+            type: "success",
+          });
+        } else {
+          throw new Error('Failed to disconnect account');
+        }
+      } catch (error) {
+        console.error('Error disconnecting account:', error);
+        showToast({
+          message: `Failed to disconnect ${account.platform} account`,
+          type: "error",
+        });
       }
-
-      keysToRemove.forEach((key) => sessionStorage.removeItem(key));
-
-      showToast({
-        message: `${account.platform} account disconnected`,
-        type: "success",
-      });
     }
   };
 
-  const handleRefreshAccount = (accountId) => {
-    setConnectedAccounts((prev) =>
-      prev.map((acc) =>
-        acc.id === accountId
-          ? { ...acc, lastSync: "Just now", status: "active" }
-          : acc
-      )
-    );
-    showToast({ message: "Account refreshed", type: "success" });
+  const handleRefreshAccount = async (accountId) => {
+    try {
+      // Reload connected accounts from database
+      await loadConnectedAccounts();
+      
+      showToast({ message: "Account refreshed", type: "success" });
+    } catch (error) {
+      console.error('Error refreshing account:', error);
+      showToast({ message: "Failed to refresh account", type: "error" });
+    }
   };
 
   const toggleAccountVisibility = (accountId) => {
@@ -888,12 +633,10 @@ function Accounts() {
     }
   };
 
-  // Updated testConnection to handle Instagram Graph API
+  // Updated testConnection to use stored access tokens
   const testConnection = async (platform, accountId) => {
-    const accessToken = sessionStorage.getItem(
-      `${platform.toLowerCase()}_access_token`
-    );
-    if (!accessToken) {
+    const account = connectedAccounts.find(acc => acc.id === accountId);
+    if (!account || !account.accessToken) {
       showToast({
         message: `No ${platform} access token found. Please reconnect your account.`,
         type: "warning",
@@ -901,30 +644,38 @@ function Accounts() {
       return;
     }
 
-    if (platform === "Instagram") {
-      const pageToken = sessionStorage.getItem("instagram_page_access_token");
-      const instagramAccountId = sessionStorage.getItem("instagram_user_id");
-
-      if (!pageToken || !instagramAccountId) {
-        showToast({
-          message:
-            "Instagram posting credentials missing. Please reconnect your account.",
-          type: "warning",
-        });
-        return;
-      }
-
-      showToast({
-        message: `${platform} connection active! Posting is enabled via Instagram Graph API.`,
-        type: "success",
-      });
-    } else {
-      showToast({
-        message: `${platform} connection test successful!`,
-        type: "success",
-      });
-    }
+    showToast({
+      message: `${platform} connection active! Posting is enabled.`,
+      type: "success",
+    });
   };
+
+  if (isLoading) {
+    return (
+      <div className="accounts-container">
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '200px',
+          color: 'var(--text-primary)'
+        }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{
+              width: '40px',
+              height: '40px',
+              border: '4px solid rgba(0, 198, 255, 0.3)',
+              borderTop: '4px solid var(--accent-color)',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite',
+              margin: '0 auto 20px'
+            }}></div>
+            <p>Loading connected accounts...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="accounts-container">

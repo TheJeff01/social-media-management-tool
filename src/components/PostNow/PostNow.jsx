@@ -1,5 +1,5 @@
 // Updated PostNow.jsx - Multiple Images and Videos Support
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import "./PostNow.css";
 import { MdSend, MdOutlineImage, MdClose, MdAdd, MdVideoLibrary } from "react-icons/md";
 import { FaTwitter, FaFacebook, FaInstagram, FaLinkedin } from "react-icons/fa";
@@ -22,6 +22,7 @@ function PostNow() {
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [connectedAccounts, setConnectedAccounts] = useState([]);
+  const [isLoadingAccounts, setIsLoadingAccounts] = useState(true);
   const { showToast } = useToast();
 
   // All available platforms with their details
@@ -32,115 +33,70 @@ function PostNow() {
     { name: "LinkedIn", icon: <FaLinkedin />, color: "#0077B5", maxMedia: 9, supportsVideo: true, videoFormats: ['mp4', 'mov', 'wmv', 'flv', 'avi'], maxVideoSize: 5 * 1024 * 1024 * 1024 }, // 5GB
   ];
 
-  // Add this debugging function at the top of your component
-  const debugCredentials = () => {
-    console.log("🔍 Debugging stored credentials:");
-
-    // Twitter credentials
-    const twitterToken = sessionStorage.getItem("twitter_access_token");
-    const twitterUserId = sessionStorage.getItem("twitter_user_id");
-    console.log("Twitter:", {
-      hasToken: !!twitterToken,
-      hasUserId: !!twitterUserId,
-      token: twitterToken ? twitterToken.substring(0, 20) + "..." : null,
-    });
-
-    // Facebook credentials
-    const fbPageId = sessionStorage.getItem("fb_page_id");
-    const fbPageToken = sessionStorage.getItem("fb_page_token");
-    console.log("Facebook:", {
-      hasPageId: !!fbPageId,
-      hasPageToken: !!fbPageToken,
-      pageId: fbPageId,
-      token: fbPageToken ? fbPageToken.substring(0, 20) + "..." : null,
-    });
-
-    // LinkedIn credentials
-    const linkedinToken = sessionStorage.getItem("linkedin_access_token");
-    const linkedinUserId = sessionStorage.getItem("linkedin_user_id");
-    console.log("LinkedIn:", {
-      hasToken: !!linkedinToken,
-      hasUserId: !!linkedinUserId,
-      userId: linkedinUserId,
-      token: linkedinToken ? linkedinToken.substring(0, 20) + "..." : null,
-    });
-  };
-
-  // Load connected accounts from sessionStorage on component mount
-  React.useEffect(() => {
-    const loadConnectedAccounts = () => {
-      const accounts = [];
-
-      // Check Facebook
-      const fbPageId = sessionStorage.getItem("fb_page_id");
-      const fbPageToken = sessionStorage.getItem("fb_page_token");
-      const fbPageName = sessionStorage.getItem("fb_page_name");
-
-      if (fbPageId && fbPageToken) {
-        accounts.push({
-          id: "facebook_" + fbPageId,
-          platform: "Facebook",
-          username: fbPageName || "Facebook Page",
-          displayName: fbPageName || "Facebook Page",
-          status: "active",
-        });
-      }
-
-      // Check Twitter
-      const twitterToken = sessionStorage.getItem("twitter_access_token");
-      const twitterUserId = sessionStorage.getItem("twitter_user_id");
-      const twitterUsername = sessionStorage.getItem("twitter_username");
-      const twitterDisplayName = sessionStorage.getItem("twitter_display_name");
-
-      if (twitterToken && twitterUserId) {
-        accounts.push({
-          id: "twitter_" + twitterUserId,
-          platform: "Twitter",
-          username: twitterUsername || "@twitter_user",
-          displayName: twitterDisplayName || "Twitter User",
-          status: "active",
-        });
-      }
-
-      // Check LinkedIn
-      const linkedinToken = sessionStorage.getItem("linkedin_access_token");
-      const linkedinUserId = sessionStorage.getItem("linkedin_user_id");
-      const linkedinUsername = sessionStorage.getItem("linkedin_username");
-      const linkedinDisplayName = sessionStorage.getItem(
-        "linkedin_display_name"
-      );
-
-      if (linkedinToken && linkedinUserId) {
-        accounts.push({
-          id: "linkedin_" + linkedinUserId,
-          platform: "LinkedIn",
-          username: linkedinUsername || "LinkedIn User",
-          displayName: linkedinDisplayName || "LinkedIn User",
-          status: "active",
-        });
-      }
-
-      // Check Instagram (Graph API requires page token + IG account id)
-      const instagramAccountId = sessionStorage.getItem("instagram_user_id");
-      const instagramPageAccessToken = sessionStorage.getItem("instagram_page_access_token");
-      const instagramUsername = sessionStorage.getItem("instagram_username");
-      const instagramDisplayName = sessionStorage.getItem("instagram_display_name");
-      if (instagramAccountId && instagramPageAccessToken) {
-        accounts.push({
-          id: "instagram_" + instagramAccountId,
-          platform: "Instagram",
-          username: instagramUsername || "@instagram_user",
-          displayName: instagramDisplayName || "Instagram User",
-          status: "active",
-        });
-      }
-
-      setConnectedAccounts(accounts);
-      console.log("📱 Connected accounts loaded:", accounts);
-    };
-
+  // Load connected accounts from database on component mount
+  useEffect(() => {
     loadConnectedAccounts();
   }, []);
+
+  const loadConnectedAccounts = async () => {
+    try {
+      const authToken = localStorage.getItem('authToken');
+      if (!authToken) {
+        setIsLoadingAccounts(false);
+        return;
+      }
+
+      const response = await fetch(`${BACKEND_URL}/api/posting/accounts`, {
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const accounts = data.accounts.map(account => {
+          // Map platform names correctly
+          let platformName;
+          switch (account.platform) {
+            case 'twitter':
+              platformName = 'Twitter';
+              break;
+            case 'facebook':
+              platformName = 'Facebook';
+              break;
+            case 'instagram':
+              platformName = 'Instagram';
+              break;
+            case 'linkedin':
+              platformName = 'LinkedIn';
+              break;
+            default:
+              platformName = account.platform.charAt(0).toUpperCase() + account.platform.slice(1);
+          }
+          
+          return {
+            id: account.id,
+            platform: platformName,
+            username: account.platform === 'twitter' ? `@${account.accountName}` : account.accountName,
+            displayName: account.accountName,
+            status: "active",
+            accountId: account.accountId,
+            hasAccessToken: account.hasAccessToken
+          };
+        });
+        
+        setConnectedAccounts(accounts);
+        console.log("📱 Connected accounts loaded:", accounts);
+      } else {
+        console.error('Failed to load connected accounts');
+      }
+    } catch (error) {
+      console.error('Error loading connected accounts:', error);
+    } finally {
+      setIsLoadingAccounts(false);
+    }
+  };
 
   // Get only connected platforms
   const getConnectedPlatforms = () => {
@@ -407,10 +363,19 @@ function PostNow() {
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
   const postToPlatformViaBackend = async (platform, content, media, mediaUrls) => {
+    // Find the account for this platform
+    const account = connectedAccounts.find(acc => acc.platform === platform);
+    if (!account) {
+      throw new Error(`${platform} account not found. Please reconnect your account.`);
+    }
+
     console.log(`🚀 Posting to ${platform}:`, {
       hasContent: !!content,
       mediaCount: media.length,
       hasMediaUrls: !!mediaUrls,
+      accountId: account.id,
+      accountPlatform: account.platform,
+      selectedPlatform: platform
     });
 
     const formData = new FormData();
@@ -419,6 +384,16 @@ function PostNow() {
     // Separate images and videos
     const images = media.filter(item => item.mediaType === 'image');
     const videos = media.filter(item => item.mediaType === 'video');
+
+    console.log('📊 Media breakdown:', {
+      totalMedia: media.length,
+      images: images.length,
+      videos: videos.length,
+      imageFiles: images.filter(item => item.type === 'file').length,
+      videoFiles: videos.filter(item => item.type === 'file').length,
+      imageUrls: images.filter(item => item.type === 'url').length,
+      videoUrls: videos.filter(item => item.type === 'url').length
+    });
 
     // Add image files
     images.forEach((image, index) => {
@@ -444,49 +419,10 @@ function PostNow() {
       formData.append("mediaUrls", urlList.join(','));
     }
 
-    // Add platform-specific credentials with validation
-    if (platform === "Twitter") {
-      const accessToken = sessionStorage.getItem("twitter_access_token");
-      if (!accessToken) {
-        throw new Error(
-          "Twitter access token not found. Please reconnect your Twitter account."
-        );
-      }
-      formData.append("accessToken", accessToken);
-      console.log("✅ Twitter credentials added");
-    } else if (platform === "Facebook") {
-      const pageId = sessionStorage.getItem("fb_page_id");
-      const pageToken = sessionStorage.getItem("fb_page_token");
-      if (!pageId || !pageToken) {
-        throw new Error(
-          "Facebook page credentials not found. Please reconnect your Facebook account."
-        );
-      }
-      formData.append("pageId", pageId);
-      formData.append("pageToken", pageToken);
-      console.log("✅ Facebook credentials added");
-    } else if (platform === "LinkedIn") {
-      const accessToken = sessionStorage.getItem("linkedin_access_token");
-      const userId = sessionStorage.getItem("linkedin_user_id");
-      if (!accessToken || !userId) {
-        throw new Error(
-          "LinkedIn credentials not found. Please reconnect your LinkedIn account."
-        );
-      }
-      formData.append("accessToken", accessToken);
-      formData.append("userId", userId);
-      console.log("✅ LinkedIn credentials added");
-    } else if (platform === "Instagram") {
-      const pageAccessToken = sessionStorage.getItem("instagram_page_access_token");
-      const instagramAccountId = sessionStorage.getItem("instagram_user_id");
-      if (!pageAccessToken || !instagramAccountId) {
-        throw new Error(
-          "Instagram credentials not found. Please reconnect your Instagram account."
-        );
-      }
-      formData.append("pageAccessToken", pageAccessToken);
-      formData.append("instagramAccountId", instagramAccountId);
-      console.log("✅ Instagram credentials added");
+    // Add authentication header
+    const authToken = localStorage.getItem('authToken');
+    if (!authToken) {
+      throw new Error("Authentication token not found. Please log in again.");
     }
 
     // Retry with backoff for HTTP 429
@@ -494,10 +430,23 @@ function PostNow() {
     let attempt = 0;
     let lastError;
     while (attempt <= maxRetries) {
+      // Debug FormData contents before sending
+      console.log('📤 FormData contents for', platform, ':');
+      for (let [key, value] of formData.entries()) {
+        if (value instanceof File) {
+          console.log(`  ${key}: File(${value.name}, ${value.size} bytes, ${value.type})`);
+        } else {
+          console.log(`  ${key}: ${value}`);
+        }
+      }
+
       const response = await fetch(
-        `${BACKEND_URL}/api/posting/${platform.toLowerCase()}`,
+        `${BACKEND_URL}/api/posting/${platform.toLowerCase()}/${account.id}`,
         {
           method: "POST",
+          headers: {
+            'Authorization': `Bearer ${authToken}`
+          },
           body: formData,
         }
       );
@@ -547,9 +496,6 @@ function PostNow() {
     media,
     mediaUrls
   ) => {
-    // Debug credentials before posting
-    debugCredentials();
-
     const formData = new FormData();
     formData.append("content", content || "");
     formData.append("platforms", JSON.stringify(platforms));
@@ -580,77 +526,25 @@ function PostNow() {
       formData.append("mediaUrls", urlList.join(','));
     }
 
-    // Gather credentials for all platforms with validation
-    const credentials = {};
-    const missingCredentials = [];
-
-    if (platforms.includes("Twitter")) {
-      const twitterToken = sessionStorage.getItem("twitter_access_token");
-      if (twitterToken) {
-        credentials.twitter = { accessToken: twitterToken };
-      } else {
-        missingCredentials.push("Twitter");
-      }
-    }
-
-    if (platforms.includes("Facebook")) {
-      const fbPageId = sessionStorage.getItem("fb_page_id");
-      const fbPageToken = sessionStorage.getItem("fb_page_token");
-      if (fbPageId && fbPageToken) {
-        credentials.facebook = { pageId: fbPageId, pageToken: fbPageToken };
-      } else {
-        missingCredentials.push("Facebook");
-      }
-    }
-
-    if (platforms.includes("LinkedIn")) {
-      const linkedinToken = sessionStorage.getItem("linkedin_access_token");
-      const linkedinUserId = sessionStorage.getItem("linkedin_user_id");
-      if (linkedinToken && linkedinUserId) {
-        credentials.linkedin = {
-          accessToken: linkedinToken,
-          userId: linkedinUserId,
-        };
-      } else {
-        missingCredentials.push("LinkedIn");
-      }
-    }
-
-    if (platforms.includes("Instagram")) {
-      const pageAccessToken = sessionStorage.getItem("instagram_page_access_token");
-      const instagramAccountId = sessionStorage.getItem("instagram_user_id");
-      if (pageAccessToken && instagramAccountId) {
-        credentials.instagram = {
-          pageAccessToken,
-          instagramAccountId,
-        };
-      } else {
-        missingCredentials.push("Instagram");
-      }
-    }
-
-    // Check for missing credentials
-    if (missingCredentials.length > 0) {
-      throw new Error(
-        `Missing credentials for: ${missingCredentials.join(
-          ", "
-        )}. Please reconnect these accounts.`
-      );
+    // Add authentication header
+    const authToken = localStorage.getItem('authToken');
+    if (!authToken) {
+      throw new Error("Authentication token not found. Please log in again.");
     }
 
     console.log("📤 Sending multi-platform request:", {
       platforms,
-      credentialsAvailable: Object.keys(credentials),
       totalMedia: media.length,
       images: images.length,
       videos: videos.length,
       contentLength: content?.length || 0,
     });
 
-    formData.append("credentials", JSON.stringify(credentials));
-
     const response = await fetch(`${BACKEND_URL}/api/posting/multi`, {
       method: "POST",
+      headers: {
+        'Authorization': `Bearer ${authToken}`
+      },
       body: formData,
     });
 
@@ -822,10 +716,15 @@ function PostNow() {
           message: `Rate limited: ${error.message}. We retried automatically. Please wait and try again if needed.`,
           type: "warning",
         });
-      } else if (error.message.includes("credentials")) {
+      } else if (error.message.includes("credentials") || error.message.includes("account not found")) {
         showToast({
           message: `Authentication issue: ${error.message}`,
           type: "error",
+        });
+      } else if (error.message.includes("Cloudinary") || error.message.includes("media URLs")) {
+        showToast({
+          message: `Media upload issue: ${error.message}. Try using media URLs instead of file uploads.`,
+          type: "warning",
         });
       } else if (
         error.message.includes("network") ||
@@ -857,6 +756,33 @@ function PostNow() {
   const characterLimit = getCharacterLimit();
   const isOverLimit = postContent.length > characterLimit;
   const mediaLimit = getMediaLimit();
+
+  if (isLoadingAccounts) {
+    return (
+      <div className="post-now-section">
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '200px',
+          color: 'var(--text-primary)'
+        }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{
+              width: '40px',
+              height: '40px',
+              border: '4px solid rgba(0, 198, 255, 0.3)',
+              borderTop: '4px solid var(--accent-color)',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite',
+              margin: '0 auto 20px'
+            }}></div>
+            <p>Loading connected accounts...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
