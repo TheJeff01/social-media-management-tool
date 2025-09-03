@@ -249,6 +249,11 @@ function Accounts() {
   // FIXED FACEBOOK OAuth 2.0 Implementation
   // =====================
 
+  const [availablePages, setAvailablePages] = useState([]);
+  const [selectedPageId, setSelectedPageId] = useState(null);
+  const [showPageModal, setShowPageModal] = useState(false);
+  const [facebookSessionId, setFacebookSessionId] = useState(null);
+
   const connectFacebook = () => {
     try {
       console.log("📘 Opening Facebook OAuth popup...");
@@ -280,8 +285,10 @@ function Accounts() {
           if (event.data.success && event.data.sessionId) {
             try {
               const authToken = localStorage.getItem('authToken');
-              const response = await fetch(
-                `${BACKEND_URL}/auth/facebook/user/${event.data.sessionId}`,
+              
+              // First get available pages
+              const pagesResponse = await fetch(
+                `${BACKEND_URL}/auth/facebook/pages/${event.data.sessionId}`,
                 {
                   headers: {
                     'Authorization': `Bearer ${authToken}`,
@@ -289,25 +296,31 @@ function Accounts() {
                   }
                 }
               );
-              const userData = await response.json();
+              
+              if (!pagesResponse.ok) {
+                throw new Error('Failed to fetch Facebook pages');
+              }
 
-              if (response.ok) {
-                // Reload connected accounts from database
+              const pagesData = await pagesResponse.json();
+              
+              if (pagesData.pages?.length > 0) {
+                // Show page selection modal
+                setAvailablePages(pagesData.pages);
+                setFacebookSessionId(event.data.sessionId);
+                setShowPageModal(true);
+              } else {
+                // No pages available, proceed with user profile
+                await saveFacebookAccount(event.data.sessionId, null);
                 await loadConnectedAccounts();
-
                 showToast({
-                  message: "✅ Facebook connected successfully!",
+                  message: "✅ Facebook profile connected successfully!",
                   type: "success",
                 });
-              } else {
-                throw new Error(
-                  userData.error || "Failed to get Facebook user data"
-                );
               }
             } catch (error) {
-              console.error("❌ Error fetching Facebook user data:", error);
+              console.error("❌ Error handling Facebook connection:", error);
               showToast({
-                message: "Failed to get Facebook user data",
+                message: "Failed to complete Facebook connection",
                 type: "error",
               });
             }
@@ -408,9 +421,9 @@ function Accounts() {
                 );
               }
             } catch (error) {
-              console.error("❌ Error fetching LinkedIn user data:", error);
+              console.error("❌ Error handling Facebook connection:", error);
               showToast({
-                message: "Failed to get LinkedIn user data",
+                message: "Failed to complete Facebook connection",
                 type: "error",
               });
             }
@@ -541,7 +554,21 @@ function Accounts() {
       });
     }
   };
-
+  const toggleAccountVisibility = (accountId) => {
+  setConnectedAccounts(prev => 
+    prev.map(account => 
+      account.id === accountId 
+        ? { ...account, isPublic: !account.isPublic }
+        : account
+    )
+  );
+  
+  const account = connectedAccounts.find(acc => acc.id === accountId);
+  showToast({
+    message: `${account.platform} account is now ${account.isPublic ? 'private' : 'public'}`,
+    type: "success",
+  });
+};
   // =====================
   // UI Event Handlers
   // =====================
@@ -610,13 +637,59 @@ function Accounts() {
     }
   };
 
-  const toggleAccountVisibility = (accountId) => {
-    setConnectedAccounts((prev) =>
-      prev.map((acc) =>
-        acc.id === accountId ? { ...acc, isPublic: !acc.isPublic } : acc
-      )
+  // Fixed saveFacebookAccount function and handlePageSelect
+const saveFacebookAccount = async (sessionId, pageId) => {
+  try {
+    const authToken = localStorage.getItem('authToken');
+    const response = await fetch(
+      `${BACKEND_URL}/auth/facebook/user/${sessionId}`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ pageId })
+      }
     );
-  };
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to save Facebook account');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error saving Facebook account:', error);
+    throw error;
+  }
+};
+
+const handlePageSelect = async () => {
+  if (!selectedPageId) {
+    showToast({ message: "Please select a page", type: "warning" });
+    return;
+  }
+
+  try {
+    await saveFacebookAccount(facebookSessionId, selectedPageId);
+    await loadConnectedAccounts();
+    showToast({
+      message: "✅ Facebook page connected successfully!",
+      type: "success",
+    });
+    setShowPageModal(false);
+    setFacebookSessionId(null);
+    setSelectedPageId(null);
+    setAvailablePages([]);
+  } catch (error) {
+    console.error('Error in handlePageSelect:', error);
+    showToast({
+      message: `Failed to connect Facebook page: ${error.message}`,
+      type: "error",
+    });
+  }
+};
 
   const getPlatformInfo = (platformName) => {
     return availablePlatforms.find((p) => p.name === platformName);
@@ -853,6 +926,60 @@ function Accounts() {
       </div>
 
       {/* Connect Modal */}
+      {/* Page Selection Modal */}
+      {showPageModal && (
+        <div className="modal-overlay" onClick={() => setShowPageModal(false)}>
+          <div className="connect-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div className="modal-platform" style={{ "--platform-color": "#4267B2" }}>
+                <FaFacebook />
+                <h2>Select Facebook Page</h2>
+              </div>
+              <button
+                className="modal-close"
+                onClick={() => setShowPageModal(false)}
+              >
+                ×
+              </button>
+            </div>
+            <div className="modal-content">
+              <div className="page-list">
+                {availablePages.map((page) => (
+                  <div 
+                    key={page.id} 
+                    className={`page-item ${selectedPageId === page.id ? 'selected' : ''}`}
+                    onClick={() => setSelectedPageId(page.id)}
+                  >
+                    <div className="page-info">
+                      <div className="page-name">{page.name}</div>
+                      <div className="page-id">ID: {page.id}</div>
+                    </div>
+                    {selectedPageId === page.id && (
+                      <FaCheckCircle className="selection-check" />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="modal-actions">
+              <button
+                className="btn-cancel"
+                onClick={() => setShowPageModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn-connect"
+                style={{ "--platform-color": "#4267B2" }}
+                onClick={handlePageSelect}
+              >
+                Connect Selected Page
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showAddModal && selectedPlatform && (
         <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
           <div className="connect-modal" onClick={(e) => e.stopPropagation()}>
