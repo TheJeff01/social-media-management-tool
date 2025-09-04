@@ -670,6 +670,8 @@
 .page-item.selected {
   background: rgba(66, 103, 178, 0.12);
   border-left: 3px solid #4267B2;
+  display: flex;
+  justify-content: space-between;
 }
 
 .page-list-container {
